@@ -10,8 +10,9 @@ Bienvenue dans le manuel d'utilisation de **Jarvis**, votre infrastructure local
 2. [Guide Pratique : Open WebUI (Interface Chat & RAG)](#2-guide-pratique--open-webui-interface-chat--rag)
 3. [Guide Pratique : Orchestration Multi-Agents avec n8n](#3-guide-pratique--orchestration-multi-agents-avec-n8n)
 4. [Gestion & Téléchargement des Modèles LLM (Ollama GPU)](#4-gestion--téléchargement-des-modèles-llm-ollama-gpu)
-5. [Exploitation, Supervision & Maintenance GitOps](#5-exploitation-supervision--maintenance-gitops)
-6. [Résolution des Incidents Fréquents (Troubleshooting)](#6-résolution-des-incidents-fréquents-troubleshooting)
+5. [Recherche d'Informations sur Internet (Web Search & RAG Temps Réel)](#5-recherche-dinformations-sur-internet-web-search--rag-temps-réel)
+6. [Exploitation, Supervision & Maintenance GitOps](#6-exploitation-supervision--maintenance-gitops)
+7. [Résolution des Incidents Fréquents (Troubleshooting)](#7-résolution-des-incidents-fréquents-troubleshooting)
 
 ---
 
@@ -341,16 +342,120 @@ curl -X DELETE http://192.168.1.160:31434/api/delete -d '{"name": "modele-a-supp
 
 ---
 
-## 5. Exploitation, Supervision & Maintenance GitOps
+## 5. Recherche d'Informations sur Internet (Web Search & RAG Temps Réel)
 
-### 5.1. Vérification de l'État de l'Application ArgoCD
+Par défaut, les modèles LLM comme `gemma2:9b` possèdent des connaissances limitées à leur date d'entraînement et n'ont pas de connexion réseau directe. La plateforme **Jarvis** intègre un système complet de **Recherche Web augmentée par génération (Web Search RAG)**, combinant la puissance de recherche en ligne avec la confidentialité et la puissance d'inférence de votre GPU local.
+
+```
+                    ┌────────────────────────────────────────────────────────┐
+                    │                      OPEN WEBUI                        │
+                    │                                                        │
+┌──────────────┐    │ 1. Question Utilisateur                                │    ┌────────────────────┐
+│              │───>│    (avec Web Search activé 🌐)                         │    │                    │
+│  Utilisateur │    │                                                        │    │     DuckDuckGo     │
+│    (Web)     │    │ 2. Requête Web ───────────────────────────────────────┼───>│  (Moteur de        │
+│              │    │ 3. Récupération des URL & Extraits ◀──────────────────┼────│   Recherche Libre) │
+│              │    │                                                        │    │                    │
+│              │    │ 4. Vectorisation RAG des pages web via                 │    └────────────────────┘
+│              │    │    `nomic-embed-text` (GPU mini)                       │
+│              │    │                                                        │    ┌────────────────────┐
+│              │    │ 5. Envoi du contexte web extrait + prompt ────────────┼───>│       OLLAMA       │
+│  Réponse     │<───│ 6. Réponse enrichie avec citations & liens web cliquables  │   │     (gemma2:9b     │
+│  Temps Réel  │    │                                                        │    │    sur RTX 2070)   │
+└──────────────┘    └────────────────────────────────────────────────────────┘    └────────────────────┘
+```
+
+---
+
+### 5.1. Comment Fonctionne la Recherche Web ?
+
+1. **Interrogation du Web** : Lorsqu'une recherche est requise, Open WebUI consulte le moteur de recherche configuré (**DuckDuckGo** par défaut, direct, anonyme et ne nécessitant aucune clé d'API).
+2. **Extraction & Nettoyage** : Les pages web les plus pertinentes (Top 3 à 5) sont téléchargées et débarrassées de leur mise en page publicitaire ou superflue.
+3. **Indexation Sémantique Locale** : Les extraits sont découpés et vectorisés en mémoire vive grâce au modèle GPU d'embeddings local **`nomic-embed-text:latest`** tournant sur la RTX 2070 SUPER.
+4. **Génération & Citation** : Le modèle `gemma2:9b` reçoit la question et les extraits web les plus pertinents, synthétise l'information en temps réel, et fournit des **liens sources cliquables** pour chaque information apportée.
+
+---
+
+### 5.2. Utilisation dans l'Interface Open WebUI
+
+#### Méthode 1 : Activer la Recherche au Cas par Cas (Recommandé)
+1. Rendez-vous sur `http://jarvis.local/` (ou `http://192.168.1.160:30080`).
+2. Dans la boîte de dialogue en bas de l'écran, cliquez sur l'icône **🌐 (Web Search)** pour l'activer.
+   * L'icône passe en surbrillance pour indiquer que la recherche en direct est activée.
+3. Posez votre question nécessitant des données fraîches, par exemple :
+   * *"Quelles sont les dernières fonctionnalités publiées dans Kubernetes 1.32 ?"*
+   * *"Quelle est la météo aujourd'hui à Bordeaux ?"*
+   * *"Résume-moi l'actualité spatiale de cette semaine."*
+4. Pendant la réponse, Open WebUI affiche un statut dynamique `Searching the web...` puis `Web search completed`, avec la liste des sites consultés et des références [1], [2] menant directement aux articles d'origine.
+
+#### Méthode 2 : Activer la Recherche Web par Défaut pour Tous les Chats
+Si vous souhaitez que chaque question cherche systématiquement sur le web :
+1. Cliquez sur votre **Profil** (en bas à gauche) > **Paramètres** (*Settings*).
+2. Ouvrez l'onglet **Général** ou **Interface**.
+3. Activez l'option **Web Search by default**.
+
+---
+
+### 5.3. Configuration & Moteurs de Recherche Disponibles
+
+La configuration est déclarée de manière immuable dans GitOps (`k8s/base/open-webui/deployment.yaml`) :
+```yaml
+- name: ENABLE_WEB_SEARCH
+  value: "True"
+- name: WEB_SEARCH_ENGINE
+  value: "duckduckgo"
+- name: WEB_SEARCH_RESULT_COUNT
+  value: "3"
+- name: WEB_SEARCH_CONCURRENT_REQUESTS
+  value: "10"
+- name: RAG_EMBEDDING_ENGINE
+  value: "ollama"
+- name: RAG_EMBEDDING_MODEL
+  value: "nomic-embed-text:latest"
+- name: RAG_OLLAMA_BASE_URL
+  value: "http://jarvis-inference.jarvis-system.svc.cluster.local:11434"
+```
+
+#### Moteurs de Recherche Compatibles :
+Depuis le panneau d'administration Open WebUI (**Panneau d'administration > Paramètres > Recherche Web**) ou via variables d'environnement, vous pouvez basculer sur :
+* **DuckDuckGo** *(Par défaut)* : Gratuit, instantané, sans clé d'API.
+* **SearXNG** : Métamoteur open-source auto-hébergeable sur votre cluster k3s.
+* **Brave Search** : Moteur indépendant avec API officielle (nécessite une clé API Brave).
+* **Tavily / Perplexity / Serper** : Moteurs optimisés pour les agents IA et LLM (nécessitent une clé API).
+* **Google Programmable Search Engine (PSE)** : Recherche Google officielle (nécessite ID moteur + clé API Google).
+
+---
+
+### 5.4. Utiliser la Recherche Web dans les Workflows Multi-Agents n8n
+
+Dans **n8n** (`http://n8n.local` ou `http://192.168.1.160:30578`), vous pouvez doter vos agents autonomes d'une capacité de recherche internet :
+
+1. Créez un nouveau workflow dans n8n.
+2. Ajoutez un nœud **AI Agent** (Outil d'agent autonome).
+3. Connectez comme modèle de langage le nœud **Ollama Chat Model** :
+   * **Base URL** : `http://jarvis-inference.jarvis-system.svc.cluster.local:11434`
+   * **Model** : `gemma2:9b`
+4. Connectez comme outil (**Tool**) à l'agent :
+   * **Outil standard** : Le nœud **HTTP Request** ou un nœud **Custom Search / SerpAPI / Tavily**.
+   * Pour DuckDuckGo sans clé : Utilisez une requête HTTP vers une API de recherche ou un script Python/Bash exécutant `ddgs`.
+5. Dans le prompt système de l'agent n8n :
+   ```text
+   Tu es un assistant d'analyse stratégique. Si une question nécessite des informations récentes ou externes, utilise ton outil de recherche web pour collecter des sources vérifiables avant de formuler ta synthèse finale.
+   ```
+6. Lorsque le workflow s'exécute, l'agent décide intelligemment s'il doit interroger internet, extrait les résultats, et produit un rapport enrichi et daté.
+
+---
+
+## 6. Exploitation, Supervision & Maintenance GitOps
+
+### 6.1. Vérification de l'État de l'Application ArgoCD
 Pour vérifier que l'infrastructure est conforme et sans dérive :
 ```bash
 kubectl get app jarvis -n argocd
 # Résultat attendu : SYNC STATUS = Synced / HEALTH STATUS = Healthy
 ```
 
-### 5.2. Surveiller l'Utilisation GPU et la VRAM en Direct
+### 6.2. Surveiller l'Utilisation GPU et la VRAM en Direct
 Pour observer la consommation énergétique, la température et la mémoire occupée de la RTX 2070 SUPER lors d'une génération :
 ```bash
 kubectl exec -n jarvis-system deploy/jarvis-inference -- nvidia-smi
@@ -361,7 +466,7 @@ Pour une surveillance en continu toutes les 2 secondes :
 kubectl exec -it -n jarvis-system deploy/jarvis-inference -- watch -n 2 nvidia-smi
 ```
 
-### 5.3. Consulter les Logs des Services
+### 6.3. Consulter les Logs des Services
 En cas de comportement inattendu :
 ```bash
 # Logs du moteur d'inférence (requêtes LLM, temps de calcul)
@@ -374,7 +479,7 @@ kubectl logs -f -n jarvis-system deploy/jarvis-webui
 kubectl logs -f -n jarvis-system deploy/jarvis-n8n
 ```
 
-### 5.4. Procédure de Redémarrage d'un Service
+### 6.4. Procédure de Redémarrage d'un Service
 Grâce aux PVC persistants, redémarrer un composant ne supprime aucune donnée ni aucun modèle :
 ```bash
 # Redémarrer Open WebUI
@@ -387,7 +492,7 @@ kubectl rollout restart deployment/jarvis-n8n -n jarvis-system
 kubectl rollout restart deployment/jarvis-inference -n jarvis-system
 ```
 
-### 5.5. Modifier la Configuration via GitOps (La Règle d'Or)
+### 6.5. Modifier la Configuration via GitOps (La Règle d'Or)
 Pour modifier une variable, une limite de mémoire ou une route :
 1. Modifiez les fichiers YAML correspondants dans `k8s/base/` ou `k8s/overlays/production/`.
 2. Validez la syntaxe localement :
@@ -403,7 +508,7 @@ Pour modifier une variable, une limite de mémoire ou une route :
 
 ---
 
-## 6. Résolution des Incidents Fréquents (Troubleshooting)
+## 7. Résolution des Incidents Fréquents (Troubleshooting)
 
 ### Q1. La page `http://jarvis.local` ne s'ouvre pas ("Site inaccessible").
 * **Cause 1** : L'entrée DNS n'est pas présente dans votre fichier `hosts`.
