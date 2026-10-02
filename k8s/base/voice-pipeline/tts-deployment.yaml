@@ -31,7 +31,7 @@ spec:
             - name: USE_GPU
               value: "false"
             - name: DEFAULT_VOICE
-              value: "ff_siwis+bm_george"
+              value: "ff_siwis"
             - name: PORT
               value: "8880"
           ports:

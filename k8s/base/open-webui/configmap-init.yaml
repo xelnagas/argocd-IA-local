@@ -27,7 +27,7 @@ data:
         c = conn.cursor()
         t = int(time.time())
         configs = [
-            ('audio.tts.voice', json.dumps('ff_siwis+bm_george')),
+            ('audio.tts.voice', json.dumps('ff_siwis')),
             ('audio.tts.engine', json.dumps('openai')),
             ('audio.tts.model', json.dumps('kokoro')),
             ('audio.tts.openai.api_base_url', json.dumps('http://jarvis-voice-tts.jarvis-system.svc.cluster.local:8880/v1')),
@@ -46,16 +46,16 @@ data:
             try:
                 s = json.loads(s_str) if s_str else {}
                 if 'ui' in s and 'audio' in s['ui'] and 'tts' in s['ui']['audio']:
-                    s['ui']['audio']['tts']['voice'] = 'ff_siwis+bm_george'
+                    s['ui']['audio']['tts']['voice'] = 'ff_siwis'
                 if 'audio' not in s:
                     s['audio'] = {}
-                s['audio']['tts'] = {'voice': 'ff_siwis+bm_george'}
+                s['audio']['tts'] = {'voice': 'ff_siwis'}
                 c.execute('UPDATE user SET settings = ? WHERE id = ?', (json.dumps(s), uid))
             except Exception:
                 pass
 
         conn.commit()
         conn.close()
-        print("WebUI SQLite audio configuration successfully initialized with voice ff_siwis+bm_george.")
+        print("WebUI SQLite audio configuration successfully initialized with voice ff_siwis.")
     except Exception as e:
         print("WebUI SQLite audio initialization error:", e)

@@ -530,7 +530,7 @@ Pour modifier une variable, une limite de mémoire ou une route :
 ### 7.2. Pipeline Vocal Voice-to-Voice (Faster-Whisper & Kokoro TTS)
 Open WebUI est préconfiguré pour communiquer directement avec les services vocaux locaux :
 * **STT (Speech-to-Text)** : `http://jarvis-voice-stt.jarvis-system.svc.cluster.local:8000/v1` (moteur Faster-Whisper, transcription < 200 ms).
-* **TTS (Text-to-Speech)** : `http://jarvis-voice-tts.jarvis-system.svc.cluster.local:8880/v1` (moteur Kokoro-82M avec voix française masculine signature `ff_siwis+bm_george` combinant la phonétique française de Siwis et le flegme calme de George, ou voix féminine pure `ff_siwis`).
+* **TTS (Text-to-Speech)** : `http://jarvis-voice-tts.jarvis-system.svc.cluster.local:8880/v1` (moteur Kokoro-82M avec voix française officielle `ff_siwis`, intonation naturelle et diction fluide en langue française).
 * **Utilisation dans Open WebUI** :
   1. Cliquez sur l'icône de **microphone** dans la barre de saisie pour dicter votre requête à la voix.
   2. Activez l'option **Lecture audio automatique** (Auto-read / Read aloud) dans les paramètres utilisateur pour entendre J.A.R.V.I.S. vous répondre de vive voix en français.
