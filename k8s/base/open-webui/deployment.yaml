@@ -34,6 +34,24 @@ spec:
               value: "Jarvis AI"
             - name: DEFAULT_MODELS
               value: "gemma2:9b"
+            - name: ENABLE_WEB_SEARCH
+              value: "True"
+            - name: ENABLE_RAG_WEB_SEARCH
+              value: "True"
+            - name: WEB_SEARCH_ENGINE
+              value: "duckduckgo"
+            - name: RAG_WEB_SEARCH_ENGINE
+              value: "duckduckgo"
+            - name: WEB_SEARCH_RESULT_COUNT
+              value: "3"
+            - name: WEB_SEARCH_CONCURRENT_REQUESTS
+              value: "10"
+            - name: RAG_EMBEDDING_ENGINE
+              value: "ollama"
+            - name: RAG_EMBEDDING_MODEL
+              value: "nomic-embed-text:latest"
+            - name: RAG_OLLAMA_BASE_URL
+              value: "http://jarvis-inference.jarvis-system.svc.cluster.local:11434"
           ports:
             - name: http
               containerPort: 8080
