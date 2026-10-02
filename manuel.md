@@ -531,9 +531,17 @@ Pour modifier une variable, une limite de mémoire ou une route :
 Open WebUI est préconfiguré pour communiquer directement avec les services vocaux locaux :
 * **STT (Speech-to-Text)** : `http://jarvis-voice-stt.jarvis-system.svc.cluster.local:8000/v1` (moteur Faster-Whisper, transcription < 200 ms).
 * **TTS (Text-to-Speech)** : `http://jarvis-voice-tts.jarvis-system.svc.cluster.local:8880/v1` (moteur Kokoro-82M avec voix française officielle `ff_siwis`, intonation naturelle et diction fluide en langue française).
+* **Configuration de la Voix Française dans Open WebUI** :
+  1. Cliquez sur votre profil / **Paramètres (roue crantée)** > onglet **Audio**.
+  2. Dans la section **Text-to-Speech (TTS)** :
+     - **Moteur** : `OpenAI`
+     - **URL de l'API** : `http://jarvis-voice-tts.jarvis-system.svc.cluster.local:8880/v1`
+     - **Voix (Voice)** : Indiquez **`ff_siwis`** (voix française native de J.A.R.V.I.S.)
+     - **Modèle** : `kokoro` (ou `tts-1`)
+  3. Cliquez sur **Enregistrer** (Save).
 * **Utilisation dans Open WebUI** :
   1. Cliquez sur l'icône de **microphone** dans la barre de saisie pour dicter votre requête à la voix.
-  2. Activez l'option **Lecture audio automatique** (Auto-read / Read aloud) dans les paramètres utilisateur pour entendre J.A.R.V.I.S. vous répondre de vive voix en français.
+  2. Activez l'option **Lecture audio automatique** (Auto-read / Read aloud) ou cliquez sur le bouton de lecture (haut-parleur) sous n'importe quel message pour entendre J.A.R.V.I.S. s'exprimer en français.
 
 > [!IMPORTANT]
 > **Erreur « Accès au microphone refusé / Accès aux appareils multimédias refusé » :**
