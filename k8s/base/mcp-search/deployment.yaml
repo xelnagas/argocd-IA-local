@@ -1,0 +1,55 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: jarvis-mcp-search
+  namespace: jarvis-system
+  labels:
+    app.kubernetes.io/name: mcp-search
+    app.kubernetes.io/component: mcp-server
+    app.kubernetes.io/part-of: jarvis
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: mcp-search
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: mcp-search
+        app.kubernetes.io/component: mcp-server
+        app.kubernetes.io/part-of: jarvis
+    spec:
+      containers:
+        - name: mcp-search
+          image: ghcr.io/open-webui/open-webui:main
+          imagePullPolicy: IfNotPresent
+          command:
+            - python3
+            - /app/mcp_server/server.py
+          ports:
+            - name: http
+              containerPort: 8000
+          resources:
+            requests:
+              cpu: "100m"
+              memory: 128Mi
+            limits:
+              cpu: "1"
+              memory: 512Mi
+          volumeMounts:
+            - name: code
+              mountPath: /app/mcp_server
+          livenessProbe:
+            tcpSocket:
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 15
+          readinessProbe:
+            tcpSocket:
+              port: http
+            initialDelaySeconds: 3
+            periodSeconds: 10
+      volumes:
+        - name: code
+          configMap:
+            name: jarvis-mcp-search-code

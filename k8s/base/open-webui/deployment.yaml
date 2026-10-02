@@ -30,6 +30,8 @@ spec:
               value: "http://jarvis-inference.jarvis-system.svc.cluster.local:11434"
             - name: WEBUI_AUTH
               value: "false"
+            - name: WEBUI_SECRET_KEY
+              value: "jarvis-super-secret-key-2026"
             - name: WEBUI_NAME
               value: "Jarvis AI"
             - name: DEFAULT_MODELS
@@ -52,6 +54,8 @@ spec:
               value: "nomic-embed-text:latest"
             - name: RAG_OLLAMA_BASE_URL
               value: "http://jarvis-inference.jarvis-system.svc.cluster.local:11434"
+            - name: TOOL_SERVER_CONNECTIONS
+              value: '[{"url":"http://jarvis-mcp-search.jarvis-system.svc.cluster.local:8000/mcp","type":"mcp","auth_type":"none","config":{"enable":true},"info":{"id":"jarvis-mcp-search","name":"MCP Web Search","description":"Serveur MCP de recherche internet DuckDuckGo et extraction web"}}]'
           ports:
             - name: http
               containerPort: 8080

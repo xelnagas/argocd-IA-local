@@ -1,0 +1,79 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: jarvis-mcp-search-code
+  namespace: jarvis-system
+  labels:
+    app.kubernetes.io/name: mcp-search
+    app.kubernetes.io/component: mcp-server
+    app.kubernetes.io/part-of: jarvis
+data:
+  server.py: |
+    import asyncio
+    import urllib.request
+    from bs4 import BeautifulSoup
+    from ddgs import DDGS
+    from mcp.server.fastmcp import FastMCP
+    import uvicorn
+
+    mcp = FastMCP("JarvisWebSearch", host="0.0.0.0", port=8000)
+
+    @mcp.tool(
+        name="search_internet",
+        description="Recherche sur Internet en temps réel via DuckDuckGo. Utilise cet outil dès que l'utilisateur pose une question sur l'actualité, la météo, des versions récentes de logiciels ou tout sujet nécessitant des informations récentes ou externes."
+    )
+    def search_internet(query: str, max_results: int = 5) -> str:
+        """Recherche des informations sur Internet en temps réel.
+        
+        Args:
+            query: Requête ou mots-clés de recherche.
+            max_results: Nombre maximum de résultats (défaut: 5).
+        """
+        try:
+            results = []
+            with DDGS() as ddgs:
+                for i, r in enumerate(ddgs.text(query, max_results=max_results), 1):
+                    results.append(
+                        f"[{i}] {r.get('title')}\n"
+                        f"URL: {r.get('href')}\n"
+                        f"Extrait: {r.get('body')}\n"
+                    )
+            if not results:
+                return f"Aucun résultat trouvé pour '{query}'."
+            return "\n---\n".join(results)
+        except Exception as e:
+            return f"Erreur lors de la recherche sur Internet : {str(e)}"
+
+    @mcp.tool(
+        name="fetch_web_page",
+        description="Télécharge et lit le contenu complet d'une page Web à partir de son URL. Utilise cet outil pour approfondir un article ou un lien trouvé lors d'une recherche."
+    )
+    def fetch_web_page(url: str, max_chars: int = 3000) -> str:
+        """Télécharge et extrait le texte d'une page web.
+        
+        Args:
+            url: L'adresse URL complète de la page web.
+            max_chars: Nombre maximum de caractères à extraire (défaut: 3000).
+        """
+        try:
+            req = urllib.request.Request(
+                url,
+                headers={
+                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+                }
+            )
+            with urllib.request.urlopen(req, timeout=10) as response:
+                html = response.read().decode("utf-8", errors="ignore")
+                soup = BeautifulSoup(html, "html.parser")
+                for tag in soup(["script", "style", "nav", "footer", "header", "aside", "noscript"]):
+                    tag.decompose()
+                clean_text = " ".join(soup.get_text().split())
+                if len(clean_text) > max_chars:
+                    clean_text = clean_text[:max_chars] + "... [Contenu tronqué]"
+                return clean_text
+        except Exception as e:
+            return f"Erreur lors de la récupération de la page '{url}' : {str(e)}"
+
+    if __name__ == "__main__":
+        app = mcp.streamable_http_app()
+        uvicorn.run(app, host="0.0.0.0", port=8000)

@@ -6,3 +6,4 @@ resources:
   - open-webui
   - n8n
   - ingress
+  - mcp-search

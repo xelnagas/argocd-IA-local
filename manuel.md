@@ -25,18 +25,19 @@ Bienvenue dans le manuel d'utilisation de **Jarvis**, votre infrastructure local
 | **Open WebUI** | Interface Chat, RAG & Agents | **`http://jarvis.local/`** | **`http://192.168.1.160:30080`** | HTTP |
 | **n8n** | Ordonnanceur Multi-Agents | **`http://n8n.local/`** | **`http://192.168.1.160:30578`** | HTTP |
 | **Moteur d'Inférence (Ollama)** | API LLM GPU (Compatible OpenAI & native) | **`http://ollama.local/`** | **`http://192.168.1.160:31434`** | HTTP (REST / Streaming) |
+| **Serveur MCP (Web Search)** | Serveur d'outils MCP (Recherche DuckDuckGo & Web) | **`http://mcp.local/`** | **`http://192.168.1.160:30800`** | HTTP / MCP (Streamable HTTP / SSE) |
 | **ArgoCD** | Console de pilotage GitOps | `https://192.168.1.160/` | - | HTTPS |
 
 ### 1.2. Configuration du Fichier `hosts` sur vos Postes Clients (LAN)
 
-L'Ingress Traefik du cluster achemine le trafic en fonction du nom d'hôte HTTP (*Host Header*). Pour accéder facilement à **Jarvis**, **n8n** et **Ollama** depuis n'importe quel ordinateur ou smartphone connecté à votre réseau local (`192.168.1.0/24`) :
+L'Ingress Traefik du cluster achemine le trafic en fonction du nom d'hôte HTTP (*Host Header*). Pour accéder facilement à **Jarvis**, **n8n**, **Ollama** et au serveur **MCP** depuis n'importe quel ordinateur ou smartphone connecté à votre réseau local (`192.168.1.0/24`) :
 
 #### Sous Windows :
 1. Ouvrez le Bloc-notes (ou un éditeur de texte) en tant qu'**Administrateur**.
 2. Ouvrez le fichier : `C:\Windows\System32\drivers\etc\hosts`.
 3. Ajoutez la ligne suivante à la fin du fichier :
    ```text
-   192.168.1.160 jarvis.local n8n.local ollama.local
+   192.168.1.160 jarvis.local n8n.local ollama.local mcp.local
    ```
 4. Enregistrez le fichier.
 
@@ -342,107 +343,135 @@ curl -X DELETE http://192.168.1.160:31434/api/delete -d '{"name": "modele-a-supp
 
 ---
 
-## 5. Recherche d'Informations sur Internet (Web Search & RAG Temps Réel)
+## 5. Recherche d'Informations sur Internet via Serveur MCP & RAG
 
-Par défaut, les modèles LLM comme `gemma2:9b` possèdent des connaissances limitées à leur date d'entraînement et n'ont pas de connexion réseau directe. La plateforme **Jarvis** intègre un système complet de **Recherche Web augmentée par génération (Web Search RAG)**, combinant la puissance de recherche en ligne avec la confidentialité et la puissance d'inférence de votre GPU local.
+Pour que les modèles d'IA locaux hébergés sur Ollama puissent rechercher des informations en direct sur Internet à la demande, la plateforme **Jarvis** intègre un **Serveur MCP dédié (Model Context Protocol)** couplé au mécanisme de **Tool Calling** (appel de fonctions) et au RAG web temps réel.
 
 ```
-                    ┌────────────────────────────────────────────────────────┐
-                    │                      OPEN WEBUI                        │
-                    │                                                        │
-┌──────────────┐    │ 1. Question Utilisateur                                │    ┌────────────────────┐
-│              │───>│    (avec Web Search activé 🌐)                         │    │                    │
-│  Utilisateur │    │                                                        │    │     DuckDuckGo     │
-│    (Web)     │    │ 2. Requête Web ───────────────────────────────────────┼───>│  (Moteur de        │
-│              │    │ 3. Récupération des URL & Extraits ◀──────────────────┼────│   Recherche Libre) │
-│              │    │                                                        │    │                    │
-│              │    │ 4. Vectorisation RAG des pages web via                 │    └────────────────────┘
-│              │    │    `nomic-embed-text` (GPU mini)                       │
-│              │    │                                                        │    ┌────────────────────┐
-│              │    │ 5. Envoi du contexte web extrait + prompt ────────────┼───>│       OLLAMA       │
-│  Réponse     │<───│ 6. Réponse enrichie avec citations & liens web cliquables  │   │     (gemma2:9b     │
-│  Temps Réel  │    │                                                        │    │    sur RTX 2070)   │
-└──────────────┘    └────────────────────────────────────────────────────────┘    └────────────────────┘
+                               ┌─────────────────────────────────────────────────────────────┐
+                               │                    CLUSTER KUBERNETES                       │
+                               │                                                             │
+┌──────────────┐   Chat/Tool   │  ┌──────────────┐    Tool Spec & Exec   ┌────────────────┐  │
+│              │──────────────>│  │              │<─────────────────────>│   Serveur MCP  │  │   Requête Web
+│  Utilisateur │               │  │  OPEN WEBUI  │                       │   (mcp-search) │──┼────────────────> ┌──────────────┐
+│   (Navig.)   │<──────────────│  │ (Client MCP) │                       │  (port 8000)   │  │   DuckDuckGo    │              │
+│              │   Résultat    │  └──────┬───────┘                       └────────────────┘  │<──────────────── │  INTERNET    │
+└──────────────┘               │         │ Inférence +                                       │   Extraits/HTML │ (DuckDuckGo, │
+                               │         │ Tool Calling                                      │                 │  Pages Web)  │
+                               │         ▼                                                   │                 └──────────────┘
+                               │  ┌──────────────┐                                           │
+                               │  │    OLLAMA    │ (Exécute llama3.1:8b avec Tool Calling    │
+                               │  │ (RTX 2070 S) │  ou gemma2:9b avec RAG Web Search)        │
+                               │  └──────────────┘                                           │
+                               └─────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-### 5.1. Comment Fonctionne la Recherche Web ?
+### 5.1. Qu'est-ce que le Serveur MCP (`jarvis-mcp-search`) ?
 
-1. **Interrogation du Web** : Lorsqu'une recherche est requise, Open WebUI consulte le moteur de recherche configuré (**DuckDuckGo** par défaut, direct, anonyme et ne nécessitant aucune clé d'API).
-2. **Extraction & Nettoyage** : Les pages web les plus pertinentes (Top 3 à 5) sont téléchargées et débarrassées de leur mise en page publicitaire ou superflue.
-3. **Indexation Sémantique Locale** : Les extraits sont découpés et vectorisés en mémoire vive grâce au modèle GPU d'embeddings local **`nomic-embed-text:latest`** tournant sur la RTX 2070 SUPER.
-4. **Génération & Citation** : Le modèle `gemma2:9b` reçoit la question et les extraits web les plus pertinents, synthétise l'information en temps réel, et fournit des **liens sources cliquables** pour chaque information apportée.
+Le protocole **Model Context Protocol (MCP)** est le standard moderne permettant aux modèles de langage d'intéragir de façon standardisée et sécurisée avec des outils externes.
 
----
+Le composant Kubernetes `jarvis-mcp-search` (déployé dans le namespace `jarvis-system`) expose deux outils fondamentaux :
 
-### 5.2. Utilisation dans l'Interface Open WebUI
+| Nom de l'Outil (*Tool*) | Description | Paramètres |
+| :--- | :--- | :--- |
+| **`search_internet`** | Effectue une recherche web via DuckDuckGo et renvoie les titres, extraits et URL. | `query` (texte de la recherche), `max_results` (défaut : 5) |
+| **`fetch_web_page`** | Télécharge une page web complète, extrait et nettoie son contenu textuel sans publicité. | `url` (adresse http/https), `max_chars` (défaut : 3000) |
 
-#### Méthode 1 : Activer la Recherche au Cas par Cas (Recommandé)
-1. Rendez-vous sur `http://jarvis.local/` (ou `http://192.168.1.160:30080`).
-2. Dans la boîte de dialogue en bas de l'écran, cliquez sur l'icône **🌐 (Web Search)** pour l'activer.
-   * L'icône passe en surbrillance pour indiquer que la recherche en direct est activée.
-3. Posez votre question nécessitant des données fraîches, par exemple :
-   * *"Quelles sont les dernières fonctionnalités publiées dans Kubernetes 1.32 ?"*
-   * *"Quelle est la météo aujourd'hui à Bordeaux ?"*
-   * *"Résume-moi l'actualité spatiale de cette semaine."*
-4. Pendant la réponse, Open WebUI affiche un statut dynamique `Searching the web...` puis `Web search completed`, avec la liste des sites consultés et des références [1], [2] menant directement aux articles d'origine.
-
-#### Méthode 2 : Activer la Recherche Web par Défaut pour Tous les Chats
-Si vous souhaitez que chaque question cherche systématiquement sur le web :
-1. Cliquez sur votre **Profil** (en bas à gauche) > **Paramètres** (*Settings*).
-2. Ouvrez l'onglet **Général** ou **Interface**.
-3. Activez l'option **Web Search by default**.
+Le serveur MCP est accessible sur le réseau local via :
+* **Ingress** : `http://mcp.local/mcp`
+* **Port direct (NodePort)** : `http://192.168.1.160:30800/mcp`
+* **DNS interne Kubernetes** : `http://jarvis-mcp-search.jarvis-system.svc.cluster.local:8000/mcp`
 
 ---
 
-### 5.3. Configuration & Moteurs de Recherche Disponibles
+### 5.2. Deux Modes de Recherche Disponibles selon le Modèle Utilisé
 
-La configuration est déclarée de manière immuable dans GitOps (`k8s/base/open-webui/deployment.yaml`) :
-```yaml
-- name: ENABLE_WEB_SEARCH
-  value: "True"
-- name: WEB_SEARCH_ENGINE
-  value: "duckduckgo"
-- name: WEB_SEARCH_RESULT_COUNT
-  value: "3"
-- name: WEB_SEARCH_CONCURRENT_REQUESTS
-  value: "10"
-- name: RAG_EMBEDDING_ENGINE
-  value: "ollama"
-- name: RAG_EMBEDDING_MODEL
-  value: "nomic-embed-text:latest"
-- name: RAG_OLLAMA_BASE_URL
-  value: "http://jarvis-inference.jarvis-system.svc.cluster.local:11434"
+La plateforme offre deux manières complémentaires d'effectuer des recherches sur le Web :
+
+| Fonctionnalité | **Mode A : Tool Calling MCP (Model Context Protocol)** | **Mode B : RAG Web Search Direct (Bouton Globe 🌐)** |
+| :--- | :--- | :--- |
+| **Principe** | Le modèle d'IA analyse la question et **décide lui-même** d'appeler l'outil `search_internet` du serveur MCP quand il en a besoin. | La recherche est exécutée systématiquement par l'interface Open WebUI avant l'envoi au modèle. |
+| **Modèles supportés** | Modèles compatibles *Tool Calling* : **`llama3.1:8b`**, `qwen2.5:7b`, `mistral:7b`. | **Tous les modèles**, y compris **`gemma2:9b`** et `gemma2:2b`. |
+| **Activation** | Sélectionner le bouton **Outils (+)** > Cocher **MCP Web Search**. | Cliquer sur l'icône **Globe 🌐** sous la zone de texte. |
+| **Contrôle & Autonomie** | Autonomie totale : l'IA peut enchaîner plusieurs recherches et approfondir en lisant une page complète via `fetch_web_page`. | Injection statique des 3 meilleurs résultats DuckDuckGo dans le prompt. |
+
+---
+
+### 5.3. Comment Utiliser le Tool MCP dans Open WebUI (Pas à Pas)
+
+1. Rendez-vous sur votre interface : **`http://jarvis.local/`** (ou `http://192.168.1.160:30080`).
+2. En haut de l'écran, sélectionnez un modèle supportant le *Tool Calling* (recommandé : **`llama3.1:8b`**).
+3. En bas, juste à gauche du champ de saisie du prompt, cliquez sur le bouton **`+` (Outils / Tools)** :
+   * Cochez l'outil **`MCP Web Search`**.
+4. Posez votre question au modèle, par exemple :
+   * *"Recherche sur Internet les nouveautés de la version 1.32 de Kubernetes et résume-moi les points clés."*
+   * *"Qui a gagné le dernier Grand Prix de Formule 1 ?"*
+   * *"Quelles sont les dernières actus sur le lanceur Starship d'aujourd'hui ?"*
+5. Observez le comportement de l'IA :
+   * Le modèle émet un appel d'outil `search_internet` vers le serveur MCP.
+   * L'interface affiche l'outil invoqué avec ses paramètres.
+   * Le modèle reçoit les données fraîches du serveur MCP et formule une réponse complète et documentée avec les liens sources.
+
+---
+
+### 5.4. Utiliser le Serveur MCP depuis Vos Outils Externes (LAN)
+
+Grâce à l'exposition sur le port NodePort `30800` et sur `http://mcp.local/mcp`, vous pouvez connecter votre serveur MCP de recherche web à vos applications de bureau favorites sur votre réseau local :
+
+#### A. Configuration dans Claude Desktop (`claude_desktop_config.json`) :
+```json
+{
+  "mcpServers": {
+    "jarvis-search": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-sse-proxy",
+        "http://192.168.1.160:30800/mcp"
+      ]
+    }
+  }
+}
 ```
 
-#### Moteurs de Recherche Compatibles :
-Depuis le panneau d'administration Open WebUI (**Panneau d'administration > Paramètres > Recherche Web**) ou via variables d'environnement, vous pouvez basculer sur :
-* **DuckDuckGo** *(Par défaut)* : Gratuit, instantané, sans clé d'API.
-* **SearXNG** : Métamoteur open-source auto-hébergeable sur votre cluster k3s.
-* **Brave Search** : Moteur indépendant avec API officielle (nécessite une clé API Brave).
-* **Tavily / Perplexity / Serper** : Moteurs optimisés pour les agents IA et LLM (nécessitent une clé API).
-* **Google Programmable Search Engine (PSE)** : Recherche Google officielle (nécessite ID moteur + clé API Google).
+#### B. Configuration dans VS Code (Extensions Cline / Roo Code / Continue.dev) :
+Dans les paramètres de l'extension, configurez un serveur MCP de type `streamable-http` (ou `sse`) pointant vers :
+* **URL** : `http://192.168.1.160:30800/mcp`
+* **Transport** : `streamable-http` / `sse`
+
+#### C. Test Direct en Python (Client MCP Officiel) :
+```python
+import asyncio
+from mcp.client.streamable_http import streamablehttp_client
+from mcp import ClientSession
+
+async def main():
+    async with streamablehttp_client("http://192.168.1.160:30800/mcp") as (read_stream, write_stream, _):
+        async with ClientSession(read_stream, write_stream) as session:
+            await session.initialize()
+            # Lister les outils
+            tools = await session.list_tools()
+            print("Outils MCP disponibles :", [t.name for t in tools.tools])
+
+            # Exécuter une recherche internet
+            result = await session.call_tool("search_internet", {"query": "ArgoCD GitOps Kubernetes", "max_results": 2})
+            print("\nRésultats de la recherche :\n", result.content[0].text)
+
+asyncio.run(main())
+```
 
 ---
 
-### 5.4. Utiliser la Recherche Web dans les Workflows Multi-Agents n8n
+### 5.5. Utilisation dans les Workflows Multi-Agents n8n
 
-Dans **n8n** (`http://n8n.local` ou `http://192.168.1.160:30578`), vous pouvez doter vos agents autonomes d'une capacité de recherche internet :
-
-1. Créez un nouveau workflow dans n8n.
-2. Ajoutez un nœud **AI Agent** (Outil d'agent autonome).
-3. Connectez comme modèle de langage le nœud **Ollama Chat Model** :
-   * **Base URL** : `http://jarvis-inference.jarvis-system.svc.cluster.local:11434`
-   * **Model** : `gemma2:9b`
-4. Connectez comme outil (**Tool**) à l'agent :
-   * **Outil standard** : Le nœud **HTTP Request** ou un nœud **Custom Search / SerpAPI / Tavily**.
-   * Pour DuckDuckGo sans clé : Utilisez une requête HTTP vers une API de recherche ou un script Python/Bash exécutant `ddgs`.
-5. Dans le prompt système de l'agent n8n :
-   ```text
-   Tu es un assistant d'analyse stratégique. Si une question nécessite des informations récentes ou externes, utilise ton outil de recherche web pour collecter des sources vérifiables avant de formuler ta synthèse finale.
-   ```
-6. Lorsque le workflow s'exécute, l'agent décide intelligemment s'il doit interroger internet, extrait les résultats, et produit un rapport enrichi et daté.
+Dans **n8n** (`http://n8n.local/` ou `http://192.168.1.160:30578`) :
+1. Créez un nœud **AI Agent**.
+2. Connectez le modèle **Ollama Chat Model** (`llama3.1:8b`).
+3. Connectez un nœud **HTTP Request Tool** (ou nœud MCP) pointant vers l'URL interne du cluster :
+   `http://jarvis-mcp-search.jarvis-system.svc.cluster.local:8000/mcp`
+4. L'agent autonome n8n consultera le serveur MCP chaque fois qu'un utilisateur demandera des données nécessitant une recherche web.
 
 ---
 
