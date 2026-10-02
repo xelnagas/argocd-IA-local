@@ -6,3 +6,5 @@ resources:
   - open-webui
   - ingress
   - mcp-search
+  - voice-pipeline
+  - second-brain

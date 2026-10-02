@@ -1,0 +1,63 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: jarvis-ingestor
+  namespace: jarvis-system
+  labels:
+    app.kubernetes.io/name: jarvis-ingestor
+    app.kubernetes.io/component: second-brain
+    app.kubernetes.io/part-of: jarvis
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: jarvis-ingestor
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: jarvis-ingestor
+        app.kubernetes.io/component: second-brain
+        app.kubernetes.io/part-of: jarvis
+    spec:
+      containers:
+        - name: ingestor
+          image: python:3.11-alpine
+          imagePullPolicy: IfNotPresent
+          command:
+            - python
+            - -u
+            - /app/ingest.py
+          env:
+            - name: OLLAMA_URL
+              value: "http://jarvis-inference.jarvis-system.svc.cluster.local:11434"
+            - name: QDRANT_URL
+              value: "http://jarvis-qdrant.jarvis-system.svc.cluster.local:6333"
+            - name: COLLECTION_NAME
+              value: "jarvis_second_brain"
+            - name: EMBED_MODEL
+              value: "nomic-embed-text"
+            - name: NOTES_DIR
+              value: "/data/notes"
+            - name: SCAN_INTERVAL
+              value: "300"
+          resources:
+            requests:
+              cpu: "100m"
+              memory: 128Mi
+            limits:
+              cpu: "1"
+              memory: 512Mi
+          volumeMounts:
+            - name: script-volume
+              mountPath: /app
+            - name: notes-storage
+              mountPath: /data/notes
+      volumes:
+        - name: script-volume
+          configMap:
+            name: jarvis-ingestor-script
+        - name: notes-storage
+          persistentVolumeClaim:
+            claimName: jarvis-notes-pvc

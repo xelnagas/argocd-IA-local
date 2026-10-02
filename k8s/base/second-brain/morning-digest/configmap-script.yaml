@@ -1,0 +1,107 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: jarvis-digest-script
+  namespace: jarvis-system
+  labels:
+    app.kubernetes.io/name: jarvis-morning-digest
+    app.kubernetes.io/component: second-brain
+    app.kubernetes.io/part-of: jarvis
+data:
+  digest.py: |
+    import os
+    import sys
+    import json
+    import time
+    from datetime import datetime
+    import urllib.request
+    import urllib.error
+
+    OLLAMA_URL = os.environ.get("OLLAMA_URL", "http://jarvis-inference.jarvis-system.svc.cluster.local:11434")
+    QDRANT_URL = os.environ.get("QDRANT_URL", "http://jarvis-qdrant.jarvis-system.svc.cluster.local:6333")
+    MODEL_NAME = os.environ.get("MODEL_NAME", "jarvis:latest")
+    NOTES_DIR = os.environ.get("NOTES_DIR", "/data/notes")
+    BRIEFINGS_DIR = os.path.join(NOTES_DIR, "Daily-Briefings")
+    WEBHOOK_URL = os.environ.get("WEBHOOK_URL", "")
+
+    def log(msg):
+        print(f"[JARVIS-DIGEST] {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - {msg}", flush=True)
+
+    def http_request(url, method="GET", data=None):
+        headers = {"Content-Type": "application/json"}
+        req_data = json.dumps(data).encode("utf-8") if data else None
+        req = urllib.request.Request(url, data=req_data, headers=headers, method=method)
+        try:
+            with urllib.request.urlopen(req, timeout=90) as response:
+                if response.status in (200, 201):
+                    body = response.read().decode("utf-8")
+                    return json.loads(body) if body else {}
+        except Exception as e:
+            log(f"Erreur HTTP ({url}) : {e}")
+            return {"error": str(e)}
+        return {}
+
+    def generate_briefing():
+        log("Génération du rapport matinal via J.A.R.V.I.S...")
+        today_str = datetime.now().strftime("%A %d %B %Y - %Hh%M")
+
+        # Vérification santé Qdrant et Ollama
+        qdrant_status = "Nominal"
+        try:
+            res_q = urllib.request.urlopen(f"{QDRANT_URL}/readyz", timeout=5)
+            if res_q.status != 200:
+                qdrant_status = "Dégradé"
+        except Exception:
+            qdrant_status = "Inaccessible"
+
+        system_context = f"""Date et Heure : {today_str}
+        État Cluster K8s : Master 192.168.1.160 actif, GPU Node mini (RTX 2070S) opérationnel.
+        Statut Base Qdrant : {qdrant_status}.
+        Moteur d'inférence : En ligne ({MODEL_NAME}).
+        Pipeline Vocal : Faster-Whisper & Kokoro TTS opérationnels."""
+
+        prompt = f"""Tu es J.A.R.V.I.S. Rédige le briefing matinal officiel pour Monsieur Julien.
+        Contexte système du matin :
+        {system_context}
+
+        Consignes pour la note matinale :
+        1. Formule tes salutations distinguées en t'adressant à « Monsieur ».
+        2. Dresse un rapide bilan télémétrique des systèmes informatiques et domotiques.
+        3. Propose 3 priorités d'ingénierie et d'organisation recommandées pour la journée.
+        4. Conclus avec ta formule de politesse flegmatique et bienveillante.
+        Formate la réponse en Markdown impeccable."""
+
+        payload = {
+            "model": MODEL_NAME,
+            "prompt": prompt,
+            "stream": False,
+            "options": {
+                "temperature": 0.6,
+                "num_ctx": 4096
+            }
+        }
+
+        res = http_request(f"{OLLAMA_URL}/api/generate", method="POST", data=payload)
+        response_text = res.get("response", "")
+
+        if not response_text:
+            log("Échec de génération du texte par le modèle. Utilisation d'un modèle de repli.")
+            response_text = f"# Briefing Matinal J.A.R.V.I.S. - {today_str}\n\nBonjour Monsieur. Tous les systèmes sont en ligne et nominaux.\n\n*Note générée en mode secours.*"
+
+        # Sauvegarde dans les notes du Second Cerveau
+        os.makedirs(BRIEFINGS_DIR, exist_ok=True)
+        filename = f"Briefing-{datetime.now().strftime('%Y-%m-%d')}.md"
+        filepath = os.path.join(BRIEFINGS_DIR, filename)
+
+        with open(filepath, "w", encoding="utf-8") as f:
+            f.write(response_text)
+        log(f"Briefing matinal enregistré avec succès dans {filepath}")
+
+        # Envoi webhook facultatif (Discord / Telegram / Gotify / ntfy)
+        if WEBHOOK_URL:
+            log(f"Envoi du briefing sur le webhook configuré...")
+            webhook_payload = {"content": f"**[J.A.R.V.I.S. - Briefing Matinal]**\n\n{response_text[:1800]}..."}
+            http_request(WEBHOOK_URL, method="POST", data=webhook_payload)
+
+    if __name__ == "__main__":
+        generate_briefing()

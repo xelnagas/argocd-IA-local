@@ -1,0 +1,62 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: jarvis-morning-digest
+  namespace: jarvis-system
+  labels:
+    app.kubernetes.io/name: jarvis-morning-digest
+    app.kubernetes.io/component: second-brain
+    app.kubernetes.io/part-of: jarvis
+spec:
+  schedule: "30 7 * * *"
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  concurrencyPolicy: Forbid
+  jobTemplate:
+    spec:
+      template:
+        metadata:
+          labels:
+            app.kubernetes.io/name: jarvis-morning-digest
+            app.kubernetes.io/component: second-brain
+            app.kubernetes.io/part-of: jarvis
+        spec:
+          restartPolicy: OnFailure
+          containers:
+            - name: digest
+              image: python:3.11-alpine
+              imagePullPolicy: IfNotPresent
+              command:
+                - python
+                - -u
+                - /app/digest.py
+              env:
+                - name: OLLAMA_URL
+                  value: "http://jarvis-inference.jarvis-system.svc.cluster.local:11434"
+                - name: QDRANT_URL
+                  value: "http://jarvis-qdrant.jarvis-system.svc.cluster.local:6333"
+                - name: MODEL_NAME
+                  value: "jarvis:latest"
+                - name: NOTES_DIR
+                  value: "/data/notes"
+                - name: WEBHOOK_URL
+                  value: ""
+              resources:
+                requests:
+                  cpu: "100m"
+                  memory: 128Mi
+                limits:
+                  cpu: "500m"
+                  memory: 512Mi
+              volumeMounts:
+                - name: script-volume
+                  mountPath: /app
+                - name: notes-storage
+                  mountPath: /data/notes
+          volumes:
+            - name: script-volume
+              configMap:
+                name: jarvis-digest-script
+            - name: notes-storage
+              persistentVolumeClaim:
+                claimName: jarvis-notes-pvc

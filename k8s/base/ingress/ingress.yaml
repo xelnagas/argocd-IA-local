@@ -41,3 +41,34 @@ spec:
                 name: jarvis-mcp-search
                 port:
                   number: 8000
+    - host: qdrant.local
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: jarvis-qdrant
+                port:
+                  number: 6333
+    - host: stt.local
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: jarvis-voice-stt
+                port:
+                  number: 8000
+    - host: tts.local
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: jarvis-voice-tts
+                port:
+                  number: 8880
+

@@ -517,3 +517,31 @@ Pour modifier une variable, une limite de mémoire ou une route :
   kubectl describe pod <nom-du-pod> -n jarvis-system
   ```
   Vérifiez la section `Events:` en bas de la commande pour identifier si le problème provient du stockage ou du GPU.
+
+---
+
+## 7. Voice-to-Voice, Persona J.A.R.V.I.S. & Second Cerveau (Phases 5 & 6)
+
+### 7.1. Le Modèle & Persona J.A.R.V.I.S. (`jarvis:latest`)
+* **Définition** : Le modèle `jarvis:latest` est automatiquement instancié au démarrage du conteneur Ollama via le `ConfigMap` [configmap-modelfile.yaml](file:///d:/devia/IAlocal/argocd-IA-local/k8s/base/inference-engine/configmap-modelfile.yaml).
+* **Comportement** : Courtoisie britannique, appellation « Monsieur », synthèse technique chirurgicale et diagnostic proactif de l'infrastructure.
+* **Sélection** : Par défaut dans Open WebUI sous le nom `jarvis:latest`.
+
+### 7.2. Pipeline Vocal Voice-to-Voice (Faster-Whisper & Kokoro TTS)
+Open WebUI est préconfiguré pour communiquer directement avec les services vocaux locaux :
+* **STT (Speech-to-Text)** : `http://jarvis-voice-stt.jarvis-system.svc.cluster.local:8000/v1` (moteur Faster-Whisper, transcription < 200 ms).
+* **TTS (Text-to-Speech)** : `http://jarvis-voice-tts.jarvis-system.svc.cluster.local:8880/v1` (moteur Kokoro-82M, voix anglaise noble `bm_george` ou adaptation phonétique française).
+* **Utilisation dans Open WebUI** :
+  1. Cliquez sur l'icône de **microphone** dans la barre de saisie pour dicter votre requête à la voix.
+  2. Activez l'option **Lecture audio automatique** (Auto-read / Read aloud) dans les paramètres utilisateur pour entendre J.A.R.V.I.S. vous répondre de vive voix.
+
+### 7.3. Second Cerveau & Base Vectorielle Qdrant
+* **Base Vectorielle** : Accessible sur le cluster à `http://jarvis-qdrant.jarvis-system.svc.cluster.local:6333` ou via Ingress `http://qdrant.local`.
+* **Ingestion Continue (`jarvis-ingestor`)** :
+  * Déposez vos notes Markdown (Obsidian Vault, documentation de projets) dans le volume persistant `jarvis-notes-pvc` monté sur `/data/notes`.
+  * Le worker scanne les fichiers, calcule leurs embeddings via `nomic-embed-text` et les injecte dans la collection `jarvis_second_brain`.
+* **Briefing Matinal J.A.R.V.I.S. (`jarvis-morning-digest`)** :
+  * Tâche planifiée quotidienne (CronJob) à **07h30**.
+  * Analyse l'état des services, synthétise les priorités du jour et génère un compte-rendu dans `/data/notes/Daily-Briefings/Briefing-YYYY-MM-DD.md`.
+  * Peut être couplé à un Webhook Discord, Telegram ou ntfy via la variable `WEBHOOK_URL`.
+

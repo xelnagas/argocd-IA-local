@@ -59,6 +59,8 @@ spec:
           volumeMounts:
             - name: models-storage
               mountPath: /root/.ollama
+            - name: modelfile-volume
+              mountPath: /etc/ollama
           lifecycle:
             postStart:
               exec:
@@ -69,7 +71,11 @@ spec:
                     (
                       sleep 5
                       until ollama list > /dev/null 2>&1; do sleep 2; done
+                      ollama pull nomic-embed-text
                       ollama pull gemma2:9b
+                      if [ -f /etc/ollama/Modelfile.jarvis ]; then
+                        ollama create jarvis -f /etc/ollama/Modelfile.jarvis
+                      fi
                     ) > /dev/null 2>&1 &
           startupProbe:
             httpGet:
@@ -94,3 +100,6 @@ spec:
         - name: models-storage
           persistentVolumeClaim:
             claimName: ollama-models-pvc
+        - name: modelfile-volume
+          configMap:
+            name: jarvis-modelfile

@@ -35,7 +35,23 @@ spec:
             - name: WEBUI_NAME
               value: "Jarvis AI"
             - name: DEFAULT_MODELS
-              value: "gemma2:9b"
+              value: "jarvis:latest"
+            - name: AUDIO_STT_ENGINE
+              value: "openai"
+            - name: AUDIO_STT_OPENAI_API_BASE_URL
+              value: "http://jarvis-voice-stt.jarvis-system.svc.cluster.local:8000/v1"
+            - name: AUDIO_STT_OPENAI_API_KEY
+              value: "jarvis-audio-key"
+            - name: AUDIO_TTS_ENGINE
+              value: "openai"
+            - name: AUDIO_TTS_OPENAI_API_BASE_URL
+              value: "http://jarvis-voice-tts.jarvis-system.svc.cluster.local:8880/v1"
+            - name: AUDIO_TTS_OPENAI_API_KEY
+              value: "jarvis-audio-key"
+            - name: AUDIO_TTS_VOICE
+              value: "bm_george"
+            - name: AUDIO_TTS_MODEL
+              value: "kokoro"
             - name: ENABLE_WEB_SEARCH
               value: "True"
             - name: ENABLE_RAG_WEB_SEARCH

@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: jarvis-voice-cache-pvc
+  namespace: jarvis-system
+  labels:
+    app.kubernetes.io/name: voice-cache
+    app.kubernetes.io/component: voice-pipeline
+    app.kubernetes.io/part-of: jarvis
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 15Gi
