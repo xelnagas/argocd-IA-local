@@ -21,6 +21,8 @@ spec:
         app.kubernetes.io/component: second-brain
         app.kubernetes.io/part-of: jarvis
     spec:
+      nodeSelector:
+        kubernetes.io/hostname: linux2
       containers:
         - name: ingestor
           image: python:3.11-alpine

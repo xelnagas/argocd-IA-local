@@ -22,6 +22,8 @@ spec:
             app.kubernetes.io/part-of: jarvis
         spec:
           restartPolicy: OnFailure
+          nodeSelector:
+            kubernetes.io/hostname: linux2
           containers:
             - name: digest
               image: python:3.11-alpine
