@@ -1,0 +1,10 @@
+# Temporary & IDE files
+.DS_Store
+*.swp
+*~
+.idea/
+.vscode/
+
+# Local testing
+scratch/
+*.log

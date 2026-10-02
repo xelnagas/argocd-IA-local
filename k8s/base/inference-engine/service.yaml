@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: jarvis-inference
+  namespace: jarvis-system
+  labels:
+    app.kubernetes.io/name: ollama
+    app.kubernetes.io/component: inference-engine
+    app.kubernetes.io/part-of: jarvis
+spec:
+  type: ClusterIP
+  ports:
+    - name: http
+      port: 11434
+      targetPort: http
+  selector:
+    app.kubernetes.io/name: ollama

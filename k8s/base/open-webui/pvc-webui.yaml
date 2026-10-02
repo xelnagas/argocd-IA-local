@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: open-webui-pvc
+  namespace: jarvis-system
+  labels:
+    app.kubernetes.io/name: open-webui
+    app.kubernetes.io/component: frontend
+    app.kubernetes.io/part-of: jarvis
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: local-path
+  resources:
+    requests:
+      storage: 10Gi

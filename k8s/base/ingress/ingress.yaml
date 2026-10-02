@@ -1,0 +1,33 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: jarvis-ingress
+  namespace: jarvis-system
+  labels:
+    app.kubernetes.io/name: jarvis-ingress
+    app.kubernetes.io/part-of: jarvis
+  annotations:
+    traefik.ingress.kubernetes.io/router.entrypoints: web,websecure
+spec:
+  ingressClassName: traefik
+  rules:
+    - host: jarvis.local
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: jarvis-webui
+                port:
+                  number: 8080
+    - host: n8n.local
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: jarvis-n8n
+                port:
+                  number: 5678

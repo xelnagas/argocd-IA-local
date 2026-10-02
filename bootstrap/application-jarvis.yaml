@@ -1,0 +1,34 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: jarvis
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+  labels:
+    app.kubernetes.io/name: jarvis
+    app.kubernetes.io/part-of: ai-platform
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/xelnagas/argocd-IA-local.git
+    targetRevision: main
+    path: k8s/overlays/production
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: jarvis-system
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+      allowEmpty: false
+    syncOptions:
+      - CreateNamespace=true
+      - ApplyOutOfSyncOnly=true
+      - ServerSideApply=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 10s
+        factor: 2
+        maxDuration: 3m
