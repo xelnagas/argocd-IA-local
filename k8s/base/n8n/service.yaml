@@ -8,10 +8,11 @@ metadata:
     app.kubernetes.io/component: workflow-engine
     app.kubernetes.io/part-of: jarvis
 spec:
-  type: ClusterIP
+  type: NodePort
   ports:
     - name: http
       port: 5678
       targetPort: http
+      nodePort: 30578
   selector:
     app.kubernetes.io/name: n8n

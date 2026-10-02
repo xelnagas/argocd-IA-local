@@ -19,12 +19,12 @@ Bienvenue dans le manuel d'utilisation de **Jarvis**, votre infrastructure local
 
 ### 1.1. Tableau des Points d'Accès
 
-| Service | Rôle | URL / Point d'accès | Protocole |
-| :--- | :--- | :--- | :--- |
-| **Open WebUI** | Interface de discussion IA, RAG & Agents | **`http://jarvis.local/`** | HTTP (Port 80 Ingress) |
-| **n8n** | Ordonnanceur & Workflows Multi-Agents | **`http://n8n.local/`** | HTTP (Port 80 Ingress) |
-| **Backend Inférence** | API LLM interne (Ollama OpenAI-compatible) | `http://jarvis-inference.jarvis-system.svc.cluster.local:11434` | Interne K8s |
-| **ArgoCD** | Console de pilotage GitOps | `https://192.168.1.160:80` (namespace `argocd`) | HTTPS |
+| Service | Rôle | URL Ingress (Nom d'hôte) | Accès Direct LAN (Sans modif DNS/hosts) | Protocole |
+| :--- | :--- | :--- | :--- | :--- |
+| **Open WebUI** | Interface Chat, RAG & Agents | **`http://jarvis.local/`** | **`http://192.168.1.160:30080`** | HTTP |
+| **n8n** | Ordonnanceur Multi-Agents | **`http://n8n.local/`** | **`http://192.168.1.160:30578`** | HTTP |
+| **Backend Inférence** | API LLM interne (Ollama) | `http://jarvis-inference.jarvis-system.svc.cluster.local:11434` | - | Interne K8s |
+| **ArgoCD** | Console de pilotage GitOps | `https://192.168.1.160/` | - | HTTPS |
 
 ### 1.2. Configuration du Fichier `hosts` sur vos Postes Clients (LAN)
 

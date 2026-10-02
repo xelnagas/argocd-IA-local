@@ -8,10 +8,11 @@ metadata:
     app.kubernetes.io/component: frontend
     app.kubernetes.io/part-of: jarvis
 spec:
-  type: ClusterIP
+  type: NodePort
   ports:
     - name: http
       port: 8080
       targetPort: http
+      nodePort: 30080
   selector:
     app.kubernetes.io/name: open-webui
