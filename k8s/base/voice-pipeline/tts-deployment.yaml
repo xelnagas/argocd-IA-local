@@ -44,10 +44,6 @@ spec:
             limits:
               cpu: "4"
               memory: 4Gi
-          volumeMounts:
-            - name: voice-storage
-              mountPath: /app/api/src/voices
-              subPath: tts-voices
           readinessProbe:
             httpGet:
               path: /health
@@ -60,7 +56,3 @@ spec:
               port: http
             initialDelaySeconds: 20
             periodSeconds: 30
-      volumes:
-        - name: voice-storage
-          persistentVolumeClaim:
-            claimName: jarvis-voice-cache-pvc
