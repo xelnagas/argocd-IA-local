@@ -49,7 +49,7 @@ spec:
             - name: AUDIO_TTS_OPENAI_API_KEY
               value: "jarvis-audio-key"
             - name: AUDIO_TTS_VOICE
-              value: "bm_george"
+              value: "ff_siwis+bm_george"
             - name: AUDIO_TTS_MODEL
               value: "kokoro"
             - name: ENABLE_WEB_SEARCH
