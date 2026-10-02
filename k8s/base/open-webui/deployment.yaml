@@ -85,6 +85,15 @@ spec:
           volumeMounts:
             - name: webui-storage
               mountPath: /app/backend/data
+            - name: init-script
+              mountPath: /app/backend/init
+          lifecycle:
+            postStart:
+              exec:
+                command:
+                  - /bin/sh
+                  - -c
+                  - python3 /app/backend/init/init-audio.py > /tmp/init-audio.log 2>&1 &
           startupProbe:
             httpGet:
               path: /health
@@ -108,3 +117,6 @@ spec:
         - name: webui-storage
           persistentVolumeClaim:
             claimName: open-webui-pvc
+        - name: init-script
+          configMap:
+            name: jarvis-webui-init-script
