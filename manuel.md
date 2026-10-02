@@ -533,11 +533,13 @@ Open WebUI est préconfiguré pour communiquer directement avec les services voc
 * **TTS (Text-to-Speech)** : `http://jarvis-voice-tts.jarvis-system.svc.cluster.local:8880/v1` (moteur Kokoro-82M avec voix française officielle `ff_siwis`, intonation naturelle et diction fluide en langue française).
 * **Configuration de la Voix Française dans Open WebUI** :
   1. Cliquez sur votre profil / **Paramètres (roue crantée)** > onglet **Audio**.
-  2. Dans la section **Text-to-Speech (TTS)** :
-     - **Moteur** : `OpenAI`
-     - **URL de l'API** : `http://jarvis-voice-tts.jarvis-system.svc.cluster.local:8880/v1`
-     - **Voix (Voice)** : Indiquez **`ff_siwis`** (voix française native de J.A.R.V.I.S.)
-     - **Modèle** : `kokoro` (ou `tts-1`)
+  2. Dans la section **Synthèse vocale (Text-to-Speech / TTS)** :
+     - **Moteur de synthèse vocale (TTS Engine)** : Sélectionnez **Par défaut** (*Default*) ou laissez le champ vide.
+       > [!WARNING]
+       > **Ne pas sélectionner « Kokoro.js » dans les réglages utilisateur :**
+       > L'option *Kokoro.js* exécute un mini-moteur WebAssembly directement dans votre navigateur client qui ne contient que 28 voix anglaises prédéfinies. Si vous saisissez `ff_siwis` en ayant sélectionné *Kokoro.js*, le navigateur déclenchera l'erreur : `Error: Voice "ff_siwis" not found. Should be one of: af_heart, af_alloy...`.
+       > En choisissant **Par défaut**, la génération audio est déléguée au pod Kubernetes `jarvis-voice-tts`, qui dispose du modèle Kokoro complet avec la voix française native `ff_siwis`.
+     - **Voix (Voice)** : Saisissez ou vérifiez **`ff_siwis`**.
   3. Cliquez sur **Enregistrer** (Save).
 * **Utilisation dans Open WebUI** :
   1. Cliquez sur l'icône de **microphone** dans la barre de saisie pour dicter votre requête à la voix.

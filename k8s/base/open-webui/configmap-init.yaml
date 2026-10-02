@@ -47,6 +47,10 @@ data:
                 s = json.loads(s_str) if s_str else {}
                 if 'ui' in s and 'audio' in s['ui'] and 'tts' in s['ui']['audio']:
                     s['ui']['audio']['tts']['voice'] = 'ff_siwis'
+                    s['ui']['audio']['tts']['defaultVoice'] = 'ff_siwis'
+                    # Désactiver explicitement browser-kokoro qui ne supporte que l'anglais dans le navigateur
+                    if s['ui']['audio']['tts'].get('engine') in ['browser-kokoro', 'kokoro']:
+                        s['ui']['audio']['tts']['engine'] = ''
                 if 'audio' not in s:
                     s['audio'] = {}
                 s['audio']['tts'] = {'voice': 'ff_siwis'}
