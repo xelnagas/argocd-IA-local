@@ -535,6 +535,17 @@ Open WebUI est préconfiguré pour communiquer directement avec les services voc
   1. Cliquez sur l'icône de **microphone** dans la barre de saisie pour dicter votre requête à la voix.
   2. Activez l'option **Lecture audio automatique** (Auto-read / Read aloud) dans les paramètres utilisateur pour entendre J.A.R.V.I.S. vous répondre de vive voix.
 
+> [!IMPORTANT]
+> **Erreur « Accès au microphone refusé / Accès aux appareils multimédias refusé » :**
+> Les navigateurs modernes (Chrome, Edge, Firefox, Brave) interdisent par défaut l'accès au microphone sur les connexions non chiffrées en pur `http://` (politique de sécurité *Secure Context* du W3C).
+> Pour activer le microphone, deux solutions au choix :
+> 1. **Accéder en HTTPS (Recommandé)** : Connectez-vous à `https://jarvis.local/` (au lieu de `http://`). Acceptez l'avertissement de sécurité TLS auto-signé une première fois. Le navigateur affichera alors immédiatement le pop-up d'autorisation du microphone.
+> 2. **Autoriser l'origine HTTP dans le navigateur** :
+>    - Dans Chrome : ouvrez `chrome://flags/#unsafely-treat-insecure-origin-as-secure`
+>    - Dans Edge : ouvrez `edge://flags/#unsafely-treat-insecure-origin-as-secure`
+>    - Activez l'option (*Enabled*) et renseignez : `http://jarvis.local, http://192.168.1.160:30080`
+>    - Cliquez sur **Relaunch**. Le micro fonctionnera immédiatement en HTTP.
+
 ### 7.3. Second Cerveau & Base Vectorielle Qdrant
 * **Base Vectorielle** : Accessible sur le cluster à `http://jarvis-qdrant.jarvis-system.svc.cluster.local:6333` ou via Ingress `http://qdrant.local`.
 * **Ingestion Continue (`jarvis-ingestor`)** :
