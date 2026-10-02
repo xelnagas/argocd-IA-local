@@ -23,19 +23,19 @@ Bienvenue dans le manuel d'utilisation de **Jarvis**, votre infrastructure local
 | :--- | :--- | :--- | :--- | :--- |
 | **Open WebUI** | Interface Chat, RAG & Agents | **`http://jarvis.local/`** | **`http://192.168.1.160:30080`** | HTTP |
 | **n8n** | Ordonnanceur Multi-Agents | **`http://n8n.local/`** | **`http://192.168.1.160:30578`** | HTTP |
-| **Backend Inférence** | API LLM interne (Ollama) | `http://jarvis-inference.jarvis-system.svc.cluster.local:11434` | - | Interne K8s |
+| **Moteur d'Inférence (Ollama)** | API LLM GPU (Compatible OpenAI & native) | **`http://ollama.local/`** | **`http://192.168.1.160:31434`** | HTTP (REST / Streaming) |
 | **ArgoCD** | Console de pilotage GitOps | `https://192.168.1.160/` | - | HTTPS |
 
 ### 1.2. Configuration du Fichier `hosts` sur vos Postes Clients (LAN)
 
-L'Ingress Traefik du cluster achemine le trafic en fonction du nom d'hôte HTTP (*Host Header*). Pour accéder facilement à **Jarvis** et **n8n** depuis n'importe quel ordinateur ou smartphone connecté à votre réseau local (`192.168.1.0/24`) :
+L'Ingress Traefik du cluster achemine le trafic en fonction du nom d'hôte HTTP (*Host Header*). Pour accéder facilement à **Jarvis**, **n8n** et **Ollama** depuis n'importe quel ordinateur ou smartphone connecté à votre réseau local (`192.168.1.0/24`) :
 
 #### Sous Windows :
 1. Ouvrez le Bloc-notes (ou un éditeur de texte) en tant qu'**Administrateur**.
 2. Ouvrez le fichier : `C:\Windows\System32\drivers\etc\hosts`.
 3. Ajoutez la ligne suivante à la fin du fichier :
    ```text
-   192.168.1.160 jarvis.local n8n.local
+   192.168.1.160 jarvis.local n8n.local ollama.local
    ```
 4. Enregistrez le fichier.
 
@@ -46,7 +46,7 @@ L'Ingress Traefik du cluster achemine le trafic en fonction du nom d'hôte HTTP 
    ```
 2. Ajoutez la ligne suivante :
    ```text
-   192.168.1.160 jarvis.local n8n.local
+   192.168.1.160 jarvis.local n8n.local ollama.local
    ```
 3. Sauvegardez (`Ctrl+O` puis `Ctrl+X`).
 
@@ -137,47 +137,206 @@ graph LR
 
 ---
 
-## 4. Gestion & Téléchargement des Modèles LLM (Ollama GPU)
+## 4. Gestion, Ajout & Création de Modèles (Moteur d'Inférence GPU)
 
-Les poids des modèles sont stockés dans le volume persistant de 60 Go (`ollama-models-pvc`) rattaché au nœud physique `mini`.
+Les poids des modèles sont stockés et persistés dans le volume de 60 Go (`ollama-models-pvc`) situé sur le stockage rapide du nœud worker GPU `mini`.
 
-### 4.1. Télécharger un Nouveau Modèle
+### 4.1. Accès Réseau Local à l'API & Interface d'Inférence
 
-#### Méthode 1 : Directement depuis Open WebUI (Le plus simple)
-1. Ouvrez `http://jarvis.local` > **Paramètres** (icône roue crantée) > **Admin Settings** > **Models**.
-2. Dans le champ **Pull a model from Ollama.com**, tapez le nom du modèle (ex: `llama3.1:8b`, `mistral:7b`, `phi3:mini`).
-3. Cliquez sur le bouton de téléchargement. La barre de progression s'affiche en direct.
+Le moteur d'inférence est directement accessible depuis n'importe quelle machine de votre réseau local (`192.168.1.0/24`) sans restriction :
 
-#### Méthode 2 : En Ligne de Commande Kubernetes
-Depuis votre terminal administrateur :
+* **Accès Direct par IP (Recommandé pour scripts & outils)** :
+  ```text
+  http://192.168.1.160:31434
+  ```
+* **Accès via Ingress (Nom d'hôte)** :
+  ```text
+  http://ollama.local/
+  ```
+
+Pour tester l'accessibilité depuis un terminal local (PowerShell, Bash) :
 ```bash
-# Télécharger un modèle léger très rapide (ex: Gemma 2 2B)
+# Vérifier que le moteur d'inférence répond
+curl http://192.168.1.160:31434/
+
+# Obtenir la liste des modèles chargés en JSON
+curl http://192.168.1.160:31434/api/tags
+```
+
+---
+
+### 4.2. Méthode 1 : Ajout en 1 Clic via l'Interface Open WebUI (Le plus simple)
+
+C'est la méthode recommandée pour un usage quotidien sans ligne de commande :
+
+1. Ouvrez **`http://jarvis.local`** (ou `http://192.168.1.160:30080`).
+2. Cliquez sur l'icône de profil en bas à gauche > **Admin Settings** (Panneau d'administration).
+3. Rendez-vous dans l'onglet **Models** (Modèles).
+4. Dans le champ **Pull a model from Ollama.com**, saisissez l'identifiant du modèle souhaité :
+   * Exemples : `llama3.1:8b`, `mistral:7b`, `phi3:mini`, `qwen2.5:7b`, `gemma2:2b`, `deepseek-coder-v2:16b`.
+5. Cliquez sur le bouton de téléchargement (flèche vers le bas).
+6. Le modèle est téléchargé en arrière-plan avec barre de progression. Dès la fin, il apparaît automatiquement dans la liste de vos conversations.
+
+---
+
+### 4.3. Méthode 2 : Téléchargement via l'API REST depuis n'importe quel Poste du LAN
+
+Grâce à l'exposition directe du port `31434`, vous pouvez déclencher le téléchargement d'un nouveau modèle depuis n'importe quel script, terminal ou outil HTTP du réseau local :
+
+#### En Bash / cURL :
+```bash
+curl http://192.168.1.160:31434/api/pull -d '{
+  "name": "llama3.1:8b"
+}'
+```
+
+#### En PowerShell (Windows) :
+```powershell
+Invoke-RestMethod -Uri "http://192.168.1.160:31434/api/pull" -Method Post -Body '{"name": "mistral:7b"}'
+```
+
+Le téléchargement s'exécute directement sur le cluster et écrit dans le stockage persistant `ollama-models-pvc`.
+
+---
+
+### 4.4. Méthode 3 : En Ligne de Commande Kubernetes (`kubectl exec`)
+
+Pour les administrateurs disposant de l'accès `kubectl` :
+```bash
+# Télécharger un modèle léger pour tests instantanés (Gemma 2 2B ~1.6 Go)
 kubectl exec -it -n jarvis-system deploy/jarvis-inference -- ollama pull gemma2:2b
 
-# Télécharger Llama 3.1 8B (compatible 100% VRAM sur la RTX 2070 SUPER)
+# Télécharger Llama 3.1 8B (optimisé pour agents et code)
 kubectl exec -it -n jarvis-system deploy/jarvis-inference -- ollama pull llama3.1:8b
 
-# Télécharger le modèle Gemma 26B (mode hybride CPU/GPU)
-kubectl exec -it -n jarvis-system deploy/jarvis-inference -- ollama pull gemma:26b
+# Télécharger Qwen 2.5 Coder 7B (excellent pour l'autocomplétion de code)
+kubectl exec -it -n jarvis-system deploy/jarvis-inference -- ollama pull qwen2.5-coder:7b
 ```
 
-### 4.2. Lister les Modèles Installés
+---
+
+### 4.5. Méthode 4 : Création d'un Modèle Personnalisé avec un `Modelfile`
+
+Vous pouvez créer vos propres modèles sur-mesure (avec System Prompt figé, température personnalisée, etc.) à partir d'un modèle existant.
+
+1. Créez un fichier nommé `Modelfile` sur votre poste ou dans le pod :
+   ```dockerfile
+   # Modelfile pour créer Jarvis-DevOps
+   FROM gemma2:9b
+
+   # Température basse pour des réponses techniques précises
+   PARAMETER temperature 0.2
+   PARAMETER num_ctx 8192
+
+   # Prompt système définissant la personnalité de l'agent
+   SYSTEM """
+   Tu es Jarvis-DevOps, un ingénieur Senior Kubernetes, GitOps, Docker et Linux.
+   Tu réponds en français, avec concision, en fournissant systématiquement des commandes
+   ou des manifests YAML prêts pour la production.
+   """
+   ```
+
+2. Exécutez la création du modèle :
+   ```bash
+   # Créer le modèle personnalisé
+   kubectl exec -i -n jarvis-system deploy/jarvis-inference -- ollama create jarvis-devops -f - < Modelfile
+   ```
+
+3. Le modèle `jarvis-devops` est instantanément disponible dans Open WebUI et dans n8n !
+
+---
+
+### 4.6. Méthode 5 : Importer des Modèles GGUF Externes (Hugging Face)
+
+Si vous souhaitez utiliser un modèle spécifique ou une quantification fine téléchargée depuis Hugging Face (fichier `.gguf`) :
+
+1. Déposez votre fichier `.gguf` dans le répertoire des modèles d'Ollama sur le nœud `mini` (ou via `kubectl cp`) :
+   ```bash
+   kubectl cp mon-modele-custom.Q4_K_M.gguf jarvis-system/<nom-du-pod>:/root/.ollama/mon-modele.gguf
+   ```
+2. Créez un `Modelfile` pointant vers ce fichier :
+   ```dockerfile
+   FROM /root/.ollama/mon-modele.gguf
+   PARAMETER temperature 0.7
+   ```
+3. Compilez-le dans Ollama :
+   ```bash
+   kubectl exec -it -n jarvis-system deploy/jarvis-inference -- ollama create mon-modele-custom -f /root/.ollama/Modelfile
+   ```
+
+---
+
+### 4.7. Méthode 6 : Connexion d'Outils Tiers sur le Réseau Local
+
+L'exposition réseau sur le port `31434` permet à vos applications préférées d'exploiter la carte **RTX 2070 SUPER** du cluster :
+
+#### A. Connexion depuis LM Studio / Chatbox / Jan :
+Dans votre application cliente sur PC :
+* **Type de fournisseur** : Ollama (ou OpenAI Compatible)
+* **Base URL** : `http://192.168.1.160:31434` (ou `http://192.168.1.160:31434/v1` en mode OpenAI)
+* **API Key** : `ollama` (ou n'importe quel texte)
+
+#### B. Connexion depuis VS Code (Extensions Continue.dev ou Cline) :
+Dans la configuration `~/.continue/config.json` :
+```json
+{
+  "models": [
+    {
+      "title": "Jarvis Gemma 2 9B (Local GPU)",
+      "provider": "ollama",
+      "model": "gemma2:9b",
+      "apiBase": "http://192.168.1.160:31434"
+    }
+  ]
+}
+```
+
+#### C. Exemple en Python (avec le SDK OpenAI) :
+```python
+from openai import OpenAI
+
+client = OpenAI(
+    base_url="http://192.168.1.160:31434/v1",
+    api_key="ollama"
+)
+
+response = client.chat.completions.create(
+    model="gemma2:9b",
+    messages=[{"role": "user", "content": "Quelle est la météo sur Mars ?"}]
+)
+
+print(response.choices[0].message.content)
+```
+
+---
+
+### 4.8. Inventaire & Suppression de Modèles
+
 ```bash
+# Lister tous les modèles présents sur le GPU
 kubectl exec -n jarvis-system deploy/jarvis-inference -- ollama list
+
+# Ou via curl depuis votre PC :
+curl -s http://192.168.1.160:31434/api/tags | jq .
+
+# Supprimer un modèle pour libérer de l'espace disque
+kubectl exec -it -n jarvis-system deploy/jarvis-inference -- ollama rm <nom-modele>
+
+# Ou via curl :
+curl -X DELETE http://192.168.1.160:31434/api/delete -d '{"name": "modele-a-supprimer"}'
 ```
 
-### 4.3. Supprimer un Modèle pour Libérer de l'Espace Disque
-```bash
-kubectl exec -it -n jarvis-system deploy/jarvis-inference -- ollama rm <nom-du-modele>
-```
+---
 
-### 4.4. Guide des Modèles Recommandés pour la RTX 2070 SUPER (8 Go VRAM)
+### 4.9. Tableau Comparatif & Dimensionnement VRAM (RTX 2070 SUPER 8 Go)
 
-| Modèle | Empreinte VRAM | Débit Observé | Cas d'usage idéal |
+| Modèle | Empreinte VRAM | Débit Mesuré | Cas d'usage idéal |
 | :--- | :--- | :--- | :--- |
-| **`gemma2:9b`** *(Installé par défaut)* | ~5.4 Go | **~30 tokens/s** | **Polyvalent par excellence** : Chat, raisonnement, code, français impeccable. |
-| **`llama3.1:8b`** | ~4.9 Go | **~35 tokens/s** | Workflows d'agents n8n, structuration JSON, outils. |
-| **`gemma2:2b`** | ~1.6 Go | **~65 tokens/s** | Classification ultra-rapide, micro-tâches, agents temps réel. |
+| **`gemma2:9b`** *(Installé)* | ~5.4 Go | **~30 tokens/s** | **Polyvalent par excellence** : Chat, raisonnement, code, français impeccable. |
+| **`nomic-embed-text`** *(Installé)* | ~0.3 Go | **Instantané** | **Embeddings & RAG** : Indexation sémantique ultra-rapide de documents. |
+| **`llama3.1:8b`** | ~4.9 Go | **~35 tokens/s** | Workflows multi-agents n8n, génération d'outils JSON structurés. |
+| **`qwen2.5-coder:7b`** | ~4.7 Go | **~35 tokens/s** | Développement informatique, écriture de scripts Python/Bash/YAML. |
+| **`gemma2:2b`** | ~1.6 Go | **~65 tokens/s** | Traitements de masse en temps réel, micro-agents, classification. |
 | **`gemma:26b`** | ~15 Go (Hybride) | **~8-12 tokens/s** | Analyses documentaires complexes nécessitant une grande profondeur. |
 
 ---

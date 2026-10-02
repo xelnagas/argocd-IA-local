@@ -8,10 +8,11 @@ metadata:
     app.kubernetes.io/component: inference-engine
     app.kubernetes.io/part-of: jarvis
 spec:
-  type: ClusterIP
+  type: NodePort
   ports:
     - name: http
       port: 11434
       targetPort: http
+      nodePort: 31434
   selector:
     app.kubernetes.io/name: ollama
