@@ -8,11 +8,10 @@ Bienvenue dans le manuel d'utilisation de **Jarvis**, votre infrastructure local
 
 1. [Accès aux Services & Configuration Réseau Local](#1-accès-aux-services--configuration-réseau-local)
 2. [Guide Pratique : Open WebUI (Interface Chat & RAG)](#2-guide-pratique--open-webui-interface-chat--rag)
-3. [Guide Pratique : Orchestration Multi-Agents avec n8n](#3-guide-pratique--orchestration-multi-agents-avec-n8n)
-4. [Gestion & Téléchargement des Modèles LLM (Ollama GPU)](#4-gestion--téléchargement-des-modèles-llm-ollama-gpu)
-5. [Recherche d'Informations sur Internet (Web Search & RAG Temps Réel)](#5-recherche-dinformations-sur-internet-web-search--rag-temps-réel)
-6. [Exploitation, Supervision & Maintenance GitOps](#6-exploitation-supervision--maintenance-gitops)
-7. [Résolution des Incidents Fréquents (Troubleshooting)](#7-résolution-des-incidents-fréquents-troubleshooting)
+3. [Gestion, Ajout & Création de Modèles (Moteur d'Inférence GPU)](#3-gestion-ajout--création-de-modèles-moteur-dinférence-gpu)
+4. [Recherche d'Informations sur Internet via Serveur MCP & RAG](#4-recherche-dinformations-sur-internet-via-serveur-mcp--rag)
+5. [Exploitation, Supervision & Maintenance GitOps](#5-exploitation-supervision--maintenance-gitops)
+6. [Résolution des Incidents Fréquents (Troubleshooting)](#6-résolution-des-incidents-fréquents-troubleshooting)
 
 ---
 
@@ -23,21 +22,20 @@ Bienvenue dans le manuel d'utilisation de **Jarvis**, votre infrastructure local
 | Service | Rôle | URL Ingress (Nom d'hôte) | Accès Direct LAN (Sans modif DNS/hosts) | Protocole |
 | :--- | :--- | :--- | :--- | :--- |
 | **Open WebUI** | Interface Chat, RAG & Agents | **`http://jarvis.local/`** | **`http://192.168.1.160:30080`** | HTTP |
-| **n8n** | Ordonnanceur Multi-Agents | **`http://n8n.local/`** | **`http://192.168.1.160:30578`** | HTTP |
 | **Moteur d'Inférence (Ollama)** | API LLM GPU (Compatible OpenAI & native) | **`http://ollama.local/`** | **`http://192.168.1.160:31434`** | HTTP (REST / Streaming) |
 | **Serveur MCP (Web Search)** | Serveur d'outils MCP (Recherche DuckDuckGo & Web) | **`http://mcp.local/`** | **`http://192.168.1.160:30800`** | HTTP / MCP (Streamable HTTP / SSE) |
 | **ArgoCD** | Console de pilotage GitOps | `https://192.168.1.160/` | - | HTTPS |
 
 ### 1.2. Configuration du Fichier `hosts` sur vos Postes Clients (LAN)
 
-L'Ingress Traefik du cluster achemine le trafic en fonction du nom d'hôte HTTP (*Host Header*). Pour accéder facilement à **Jarvis**, **n8n**, **Ollama** et au serveur **MCP** depuis n'importe quel ordinateur ou smartphone connecté à votre réseau local (`192.168.1.0/24`) :
+L'Ingress Traefik du cluster achemine le trafic en fonction du nom d'hôte HTTP (*Host Header*). Pour accéder facilement à **Jarvis**, **Ollama** et au serveur **MCP** depuis n'importe quel ordinateur ou smartphone connecté à votre réseau local (`192.168.1.0/24`) :
 
 #### Sous Windows :
 1. Ouvrez le Bloc-notes (ou un éditeur de texte) en tant qu'**Administrateur**.
 2. Ouvrez le fichier : `C:\Windows\System32\drivers\etc\hosts`.
 3. Ajoutez la ligne suivante à la fin du fichier :
    ```text
-   192.168.1.160 jarvis.local n8n.local ollama.local mcp.local
+   192.168.1.160 jarvis.local ollama.local mcp.local
    ```
 4. Enregistrez le fichier.
 
@@ -48,12 +46,12 @@ L'Ingress Traefik du cluster achemine le trafic en fonction du nom d'hôte HTTP 
    ```
 2. Ajoutez la ligne suivante :
    ```text
-   192.168.1.160 jarvis.local n8n.local ollama.local
+   192.168.1.160 jarvis.local ollama.local mcp.local
    ```
 3. Sauvegardez (`Ctrl+O` puis `Ctrl+X`).
 
 > [!TIP]
-> Si vous disposez d'un serveur DNS local (ex: Pi-hole, AdGuard Home, ou DNS de routeur/box), vous pouvez ajouter directement une entrée DNS de type `A` pointant `*.local` ou `jarvis.local` et `n8n.local` vers l'IP `192.168.1.160`. Ainsi, tous les équipements de votre maison y auront accès sans configuration individuelle.
+> Si vous disposez d'un serveur DNS local (ex: Pi-hole, AdGuard Home, ou DNS de routeur/box), vous pouvez ajouter directement une entrée DNS de type `A` pointant `*.local` ou `jarvis.local` vers l'IP `192.168.1.160`. Ainsi, tous les équipements de votre maison y auront accès sans configuration individuelle.
 
 ---
 
@@ -92,54 +90,7 @@ En cliquant sur l'icône de réglages en haut à droite d'une conversation :
 
 ---
 
-## 3. Guide Pratique : Orchestration Multi-Agents avec n8n
-
-**n8n** permet d'automatiser des flux de travail complexes et de connecter le LLM local à des déclencheurs événementiels (cron, webhooks, flux RSS, requêtes HTTP, etc.).
-
-### 3.1. Première Initialisation de n8n
-1. Ouvrez votre navigateur sur **`http://n8n.local`**.
-2. Lors de la première visite, n8n vous invite à créer le compte d'administration principal (nom, email, mot de passe).
-3. Ces identifiants et les données de vos flux sont conservés de manière persistante dans le volume Kubernetes `n8n-data-pvc`.
-
-### 3.2. Connexion de n8n au LLM Local Jarvis (Ollama)
-Pour utiliser le modèle Gemma dans vos workflows n8n :
-1. Dans le menu de gauche de n8n, cliquez sur **Credentials** (Identifiants) > **Add Credential**.
-2. Recherchez **OpenAI** (car Ollama fournit une API 100% compatible OpenAI).
-3. Renseignez les paramètres suivants :
-   * **API Key** : `ollama` (n'importe quelle chaîne de caractères non vide).
-   * **Base URL** (dans les paramètres avancés / Custom Endpoints) :
-     ```text
-     http://jarvis-inference.jarvis-system.svc.cluster.local:11434/v1
-     ```
-4. Cliquez sur **Save**.
-
-### 3.3. Création d'un Workflow Multi-Agents Pas-à-Pas
-
-Voici comment construire une chaîne à deux agents autonomes :
-
-```mermaid
-graph LR
-    Trigger["1. Déclencheur<br/>(Webhook / Cron)"] --> Agent1["2. Agent Chercheur / Analyste<br/>(Découpe la question & extrait les faits)"]
-    Agent1 --> Agent2["3. Agent Rédacteur / Synthèse<br/>(Formule le rapport final au format Markdown)"]
-    Agent2 --> Output["4. Sortie<br/>(Notification / Stockage / Webhook Response)"]
-```
-
-1. Dans n8n, créez un nouveau workflow : **New Workflow**.
-2. Ajoutez un déclencheur : nœud **Manual Trigger** ou **Webhook**.
-3. Ajoutez un nœud **AI Agent** (Agent 1) :
-   - Mode : *Tools Agent* ou *Chat Agent*.
-   - Connectez-y le nœud **OpenAI Chat Model** :
-     - Credential : sélectionnez celui créé à l'étape 3.2.
-     - Model : `gemma2:9b`.
-   - Prompt système de l'Agent 1 : *"Tu es un analyste expert. Ton rôle est de décomposer la demande de l'utilisateur, d'extraire les éléments clés et d'identifier les contraintes."*
-4. Ajoutez un second nœud **AI Agent** (Agent 2) relié à la sortie du premier :
-   - Connectez le même modèle LLM.
-   - Prompt système de l'Agent 2 : *"Tu es un rédacteur professionnel. Prends les éléments analysés par l'analyste et rédige une synthèse claire, structurée et directement exploitable."*
-5. Cliquez sur **Test step** : les deux agents s'exécutent en cascade sur votre GPU local !
-
----
-
-## 4. Gestion, Ajout & Création de Modèles (Moteur d'Inférence GPU)
+## 3. Gestion, Ajout & Création de Modèles (Moteur d'Inférence GPU)
 
 Les poids des modèles sont stockés et persistés dans le volume de 60 Go (`ollama-models-pvc`) situé sur le stockage rapide du nœud worker GPU `mini`.
 
@@ -244,7 +195,7 @@ Vous pouvez créer vos propres modèles sur-mesure (avec System Prompt figé, te
    kubectl exec -i -n jarvis-system deploy/jarvis-inference -- ollama create jarvis-devops -f - < Modelfile
    ```
 
-3. Le modèle `jarvis-devops` est instantanément disponible dans Open WebUI et dans n8n !
+3. Le modèle `jarvis-devops` est instantanément disponible dans Open WebUI !
 
 ---
 
@@ -336,14 +287,14 @@ curl -X DELETE http://192.168.1.160:31434/api/delete -d '{"name": "modele-a-supp
 | :--- | :--- | :--- | :--- |
 | **`gemma2:9b`** *(Installé)* | ~5.4 Go | **~30 tokens/s** | **Polyvalent par excellence** : Chat, raisonnement, code, français impeccable. |
 | **`nomic-embed-text`** *(Installé)* | ~0.3 Go | **Instantané** | **Embeddings & RAG** : Indexation sémantique ultra-rapide de documents. |
-| **`llama3.1:8b`** | ~4.9 Go | **~35 tokens/s** | Workflows multi-agents n8n, génération d'outils JSON structurés. |
+| **`llama3.1:8b`** | ~4.9 Go | **~35 tokens/s** | **Tool Calling & MCP** : Modèle de référence pour l'utilisation d'outils et requêtes JSON. |
 | **`qwen2.5-coder:7b`** | ~4.7 Go | **~35 tokens/s** | Développement informatique, écriture de scripts Python/Bash/YAML. |
 | **`gemma2:2b`** | ~1.6 Go | **~65 tokens/s** | Traitements de masse en temps réel, micro-agents, classification. |
 | **`gemma:26b`** | ~15 Go (Hybride) | **~8-12 tokens/s** | Analyses documentaires complexes nécessitant une grande profondeur. |
 
 ---
 
-## 5. Recherche d'Informations sur Internet via Serveur MCP & RAG
+## 4. Recherche d'Informations sur Internet via Serveur MCP & RAG
 
 Pour que les modèles d'IA locaux hébergés sur Ollama puissent rechercher des informations en direct sur Internet à la demande, la plateforme **Jarvis** intègre un **Serveur MCP dédié (Model Context Protocol)** couplé au mécanisme de **Tool Calling** (appel de fonctions) et au RAG web temps réel.
 
@@ -464,27 +415,16 @@ asyncio.run(main())
 
 ---
 
-### 5.5. Utilisation dans les Workflows Multi-Agents n8n
+## 5. Exploitation, Supervision & Maintenance GitOps
 
-Dans **n8n** (`http://n8n.local/` ou `http://192.168.1.160:30578`) :
-1. Créez un nœud **AI Agent**.
-2. Connectez le modèle **Ollama Chat Model** (`llama3.1:8b`).
-3. Connectez un nœud **HTTP Request Tool** (ou nœud MCP) pointant vers l'URL interne du cluster :
-   `http://jarvis-mcp-search.jarvis-system.svc.cluster.local:8000/mcp`
-4. L'agent autonome n8n consultera le serveur MCP chaque fois qu'un utilisateur demandera des données nécessitant une recherche web.
-
----
-
-## 6. Exploitation, Supervision & Maintenance GitOps
-
-### 6.1. Vérification de l'État de l'Application ArgoCD
+### 5.1. Vérification de l'État de l'Application ArgoCD
 Pour vérifier que l'infrastructure est conforme et sans dérive :
 ```bash
 kubectl get app jarvis -n argocd
 # Résultat attendu : SYNC STATUS = Synced / HEALTH STATUS = Healthy
 ```
 
-### 6.2. Surveiller l'Utilisation GPU et la VRAM en Direct
+### 5.2. Surveiller l'Utilisation GPU et la VRAM en Direct
 Pour observer la consommation énergétique, la température et la mémoire occupée de la RTX 2070 SUPER lors d'une génération :
 ```bash
 kubectl exec -n jarvis-system deploy/jarvis-inference -- nvidia-smi
@@ -495,7 +435,7 @@ Pour une surveillance en continu toutes les 2 secondes :
 kubectl exec -it -n jarvis-system deploy/jarvis-inference -- watch -n 2 nvidia-smi
 ```
 
-### 6.3. Consulter les Logs des Services
+### 5.3. Consulter les Logs des Services
 En cas de comportement inattendu :
 ```bash
 # Logs du moteur d'inférence (requêtes LLM, temps de calcul)
@@ -504,18 +444,18 @@ kubectl logs -f -n jarvis-system deploy/jarvis-inference
 # Logs de l'interface Open WebUI
 kubectl logs -f -n jarvis-system deploy/jarvis-webui
 
-# Logs de n8n
-kubectl logs -f -n jarvis-system deploy/jarvis-n8n
+# Logs du serveur MCP de recherche
+kubectl logs -f -n jarvis-system deploy/jarvis-mcp-search
 ```
 
-### 6.4. Procédure de Redémarrage d'un Service
+### 5.4. Procédure de Redémarrage d'un Service
 Grâce aux PVC persistants, redémarrer un composant ne supprime aucune donnée ni aucun modèle :
 ```bash
 # Redémarrer Open WebUI
 kubectl rollout restart deployment/jarvis-webui -n jarvis-system
 
-# Redémarrer n8n
-kubectl rollout restart deployment/jarvis-n8n -n jarvis-system
+# Redémarrer le serveur MCP
+kubectl rollout restart deployment/jarvis-mcp-search -n jarvis-system
 
 # Redémarrer le moteur d'inférence
 kubectl rollout restart deployment/jarvis-inference -n jarvis-system
@@ -537,7 +477,7 @@ Pour modifier une variable, une limite de mémoire ou une route :
 
 ---
 
-## 7. Résolution des Incidents Fréquents (Troubleshooting)
+## 6. Résolution des Incidents Fréquents (Troubleshooting)
 
 ### Q1. La page `http://jarvis.local` ne s'ouvre pas ("Site inaccessible").
 * **Cause 1** : L'entrée DNS n'est pas présente dans votre fichier `hosts`.

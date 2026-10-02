@@ -92,14 +92,12 @@ argocd-IA-local/
     │   ├── open-webui/                 # Frontend WebUI
     │   │   ├── deployment.yaml
     │   │   ├── service.yaml
-    │   │   ├── ingress.yaml
-    │   │   └── pvc-data.yaml
-    │   └── n8n/                        # Ordonnanceur multi-agents
+    │   │   └── pvc.yaml
+    │   └── mcp-search/                 # Serveur d'outils MCP (Recherche Web & Fetch)
     │       ├── deployment.yaml
     │       ├── service.yaml
-    │       ├── ingress.yaml
-    │       ├── pvc-n8n.yaml
-    │       └── configmap.yaml
+    │       ├── configmap.yaml
+    │       └── kustomization.yaml
     │
     └── overlays/
         └── production/                 # Configuration spécifique au cluster local
@@ -109,7 +107,7 @@ argocd-IA-local/
             │   ├── ingress-hosts.yaml  # Définition des noms DNS/IP du LAN (192.168.1.0/24)
             │   └── storage-class.yaml  # Mapping des StorageClasses locales
             └── secrets/
-                └── sealed-secrets.yaml # Secrets chiffrés pour n8n et WebUI
+                └── sealed-secrets.yaml # Secrets chiffrés pour WebUI
 ```
 
 ---
@@ -121,16 +119,16 @@ Tous les manifests déployés au sein de la stack **Jarvis** doivent respecter l
 ```yaml
 metadata:
   labels:
-    app.kubernetes.io/name: <nom-composant>       # ex: vllm, open-webui, n8n
+    app.kubernetes.io/name: <nom-composant>       # ex: ollama, open-webui, mcp-search
     app.kubernetes.io/instance: jarvis
     app.kubernetes.io/version: "<semver>"         # ex: "0.5.4", "v0.3.10"
-    app.kubernetes.io/component: <role>           # ex: inference-backend, frontend, workflow-engine
+    app.kubernetes.io/component: <role>           # ex: inference-engine, frontend, mcp-server
     app.kubernetes.io/part-of: jarvis
     app.kubernetes.io/managed-by: argocd
 ```
 
 ### Règles de Naming
-* Noms de ressources K8s en `kebab-case` : `jarvis-inference`, `jarvis-webui`, `jarvis-n8n`.
+* Noms de ressources K8s en `kebab-case` : `jarvis-inference`, `jarvis-webui`, `jarvis-mcp-search`.
 * Noms des services internes : DNS interne clair, par exemple `http://jarvis-inference.jarvis-system.svc.cluster.local:8000`.
 
 ---
@@ -184,32 +182,24 @@ spec:
 
 ## 6. Normes de Gestion des Secrets (Sécurité GitOps)
 
-Aucun secret (mot de passe, clé API, jeton JWT, clé d'encryptage n8n) ne doit être déposé en clair dans le dépôt Git.
+Aucun secret (mot de passe, clé API, jeton JWT) ne doit être déposé en clair dans le dépôt Git.
 
 ### 6.1. Outil Standard : Bitnami Sealed Secrets (ou SOPS)
 * Les secrets sont chiffrés asymétriquement côté poste administrateur (`julien`) avec la clé publique du contrôleur `SealedSecrets` déployé sur le master `192.168.1.160`.
-* Seul le manifest `SealedSecret` (chiffré) est versionné dans Git :
-  ```bash
-  kubectl create secret generic n8n-credentials \
-    --from-literal=N8N_ENCRYPTION_KEY="mon-secret-tres-sur" \
-    --dry-run=client -o yaml | \
-    kubeseal --controller-namespace kube-system \
-             --format yaml > k8s/overlays/production/secrets/sealed-n8n.yaml
-  ```
+* Seul le manifest `SealedSecret` (chiffré) est versionné dans Git.
 * À la synchronisation, le contrôleur restaure le `Secret` Kubernetes standard dans le namespace `jarvis-system`.
 
 ---
 
 ## 7. Gestion du Stockage & Poids des Modèles
 
-Le modèle **Gemma 4 26B A4B** et ses variantes quantifiées représentent entre 15 Go et 30 Go de données de poids tensoriels.
+Le modèle **Gemma 2 9B**, **Llama 3.1 8B** et leurs variantes quantifiées représentent plusieurs gigaoctets de données de poids tensoriels.
 
 ### Règles de Gestion des PVC :
-1. **Politique de Rétention (`reclaimPolicy`)** : Définie sur `Retain` pour le PVC des modèles (`pvc-models.yaml`), afin d'éviter la suppression accidentelle des poids du modèle lors d'un cycle de suppression d'application ArgoCD.
+1. **Politique de Rétention (`reclaimPolicy`)** : Définie sur `Retain` pour le PVC des modèles (`ollama-models-pvc`), afin d'éviter la suppression accidentelle des poids du modèle lors d'un cycle de suppression d'application ArgoCD.
 2. **Points de Montage Dédiés** :
-   - Moteur d'inférence : `/models` ou `/root/.cache/huggingface`.
-   - Open WebUI : `/app/backend/data` (historique des chats, embeddings RAG).
-   - n8n : `/home/node/.n8n` (workflows, exécutions, logs).
+   - Moteur d'inférence : `/root/.ollama/models`.
+   - Open WebUI : `/app/backend/data` (historique des chats, configurations).
 
 ---
 
@@ -218,18 +208,18 @@ Le modèle **Gemma 4 26B A4B** et ses variantes quantifiées représentent entre
 ```mermaid
 gitGraph
    commit id: "Initial-Setup"
-   branch feature/gemma-vllm
-   checkout feature/gemma-vllm
-   commit id: "feat(gpu): add vllm manifest"
-   commit id: "feat(model): config gemma 26b"
+   branch feature/gemma-gpu
+   checkout feature/gemma-gpu
+   commit id: "feat(gpu): add ollama manifest"
+   commit id: "feat(model): pull gemma 9b"
    checkout main
-   merge feature/gemma-vllm id: "PR Merged"
+   merge feature/gemma-gpu id: "PR Merged"
    commit id: "ArgoCD Auto-Sync (Production)"
 ```
 
 ### 8.1. Conventions de Commits (Conventional Commits)
 * `feat(inference)` : Ajout ou mise à jour du moteur d'inférence ou modèle.
-* `feat(n8n)` : Ajout d'extensions ou paramètres de workflows multi-agents.
+* `feat(mcp)` : Ajout d'outils ou paramètres du serveur MCP.
 * `feat(webui)` : Configuration ou mise à jour de l'interface Open WebUI.
 * `fix(gpu)` : Ajustement des allocations de VRAM ou des paramètres CUDA.
 * `chore(gitops)` : Ajustement des règles de synchronisation ArgoCD.

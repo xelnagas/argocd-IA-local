@@ -4,6 +4,5 @@ resources:
   - namespace.yaml
   - inference-engine
   - open-webui
-  - n8n
   - ingress
   - mcp-search

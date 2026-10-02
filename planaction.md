@@ -2,7 +2,7 @@
 
 | Métadonnée | Valeur |
 | :--- | :--- |
-| **Projet** | Jarvis (Stack IA Locale, Open WebUI & n8n Multi-Agents) |
+| **Projet** | Jarvis (Stack IA Locale, Open WebUI & Serveur MCP Web Search) |
 | **Dépôt GitOps** | `https://github.com/xelnagas/argocd-IA-local.git` |
 | **Application ArgoCD** | `jarvis` (sur cluster `192.168.1.160`, admin `julien`) |
 | **Nœud GPU Dédié** | `mini` (`192.168.1.99`, RTX 2070 SUPER 8 Go VRAM, CUDA 13.0) |
@@ -32,9 +32,9 @@ gantt
     section Phase 3 : WebUI & Réseau
     Déploiement Open WebUI                   :done,    p3_1, 2026-10-02, 1d
     Ingress Traefik & Exposition LAN         :done,    p3_2, 2026-10-02, 1d
-    section Phase 4 : Multi-Agents n8n
-    Déploiement n8n & Gestion Secrets        :done,    p4_1, 2026-10-02, 1d
-    Interconnexion n8n <-> Moteur LLM        :done,    p4_2, 2026-10-02, 1d
+    section Phase 4 : Serveur MCP Web Search
+    Déploiement FastMCP & Service K8s        :done,    p4_1, 2026-10-02, 1d
+    Interconnexion Open WebUI <-> MCP        :done,    p4_2, 2026-10-02, 1d
     section Phase 5 : Recette & Clôture
     Recette globale, Git commit & push       :done,    p5_1, 2026-10-02, 1d
 ```
@@ -60,7 +60,6 @@ gantt
 * [x] **1.3.** Définition des volumes persistants sur StorageClass `local-path` :
   - `ollama-models-pvc` (60 Go sur le nœud `mini`).
   - `open-webui-pvc` (10 Go).
-  - `n8n-data-pvc` (10 Go).
 * [x] **1.4.** Déploiement du fichier bootstrap [application-jarvis.yaml](./bootstrap/application-jarvis.yaml) dans ArgoCD.
 * [x] **1.5.** Validation du statut ArgoCD : **Synced** et **Healthy**.
 
@@ -68,7 +67,7 @@ gantt
 
 ### ✅ Phase 2 : Moteur d'Inférence IA GPU (Ollama) (Terminée)
 * [x] **2.1.** Déploiement du backend Ollama (`jarvis-inference`) assigné strictement à `mini` (`runtimeClassName: nvidia`, `limits: { nvidia.com/gpu: 1 }`).
-* [x] **2.2.** Téléchargement et chargement en persistance du modèle **Gemma 2 9B** (`ff02c3702f32`, 5.4 Go).
+* [x] **2.2.** Téléchargement et chargement en persistance du modèle **Gemma 2 9B** et **Llama 3.1 8B**.
 * [x] **2.3.** Détection du GPU par Ollama (`compute=7.5`, `total=7.6 GiB`, `available=7.5 GiB`).
 * [x] **2.4.** Test d'inférence en direct validé avec succès (Génération fluide en langue française).
 
@@ -76,24 +75,16 @@ gantt
 
 ### ✅ Phase 3 : Interface Utilisateur (Open WebUI) & Exposition Réseau (Terminée)
 * [x] **3.1.** Déploiement d'Open WebUI (`jarvis-webui`) connecté au service d'inférence interne `jarvis-inference:11434`.
-* [x] **3.2.** Exposition LAN via Traefik Ingress sous le nom d'hôte `jarvis.local` :
-  ```bash
-  curl -I -H "Host: jarvis.local" http://192.168.1.160/
-  # HTTP/1.1 200 OK (Server: uvicorn)
-  ```
-* [x] **3.3.** Stockage persistant de l'historique et des embeddings RAG (`open-webui-pvc`).
+* [x] **3.2.** Exposition LAN via Traefik Ingress sous le nom d'hôte `jarvis.local` et NodePort `30080`.
+* [x] **3.3.** Stockage persistant des conversations (`open-webui-pvc`).
 
 ---
 
-### ✅ Phase 4 : Ordonnanceur Multi-Agents (n8n) (Terminée)
-* [x] **4.1.** Déploiement de n8n (`jarvis-n8n`) avec injection sécurisée de la clé de chiffrement `N8N_ENCRYPTION_KEY`.
-* [x] **4.2.** Exposition LAN via Traefik Ingress sous le nom d'hôte `n8n.local` :
-  ```bash
-  curl -I -H "Host: n8n.local" http://192.168.1.160/healthz
-  # HTTP/1.1 200 OK (ok)
-  ```
-* [x] **4.3.** Connexion prête vers le backend d'inférence local OpenAI-compatible à l'URL interne :
-  `http://jarvis-inference.jarvis-system.svc.cluster.local:11434/v1`.
+### ✅ Phase 4 : Serveur MCP & Recherche Web (Terminée)
+* [x] **4.1.** Déploiement du serveur MCP `jarvis-mcp-search` (FastMCP / Streamable HTTP) exposant les outils `search_internet` et `fetch_web_page`.
+* [x] **4.2.** Exposition réseau Ingress `http://mcp.local/mcp` et NodePort `30800`.
+* [x] **4.3.** Connexion automatique comme serveur d'outils externe dans Open WebUI via `TOOL_SERVER_CONNECTIONS`.
+* [x] **4.4.** Validation de l'appel d'outil (*Tool Calling*) en direct avec le modèle Ollama `llama3.1:8b`.
 
 ---
 
@@ -109,7 +100,7 @@ gantt
 
 | Risque Identifié | Impact | Probabilité | Mesure d'Atténuation Validée |
 | :--- | :--- | :--- | :--- |
-| **VRAM Out-Of-Memory (OOM)** sur la RTX 2070 (8 Go) | Élevé | Moyenne | Modèle **Gemma 2 9B (5.4 Go)** déployé par défaut (tient à 100% en VRAM avec KV-cache). |
+| **VRAM Out-Of-Memory (OOM)** sur la RTX 2070 (8 Go) | Élevé | Moyenne | Modèles **Gemma 2 9B** et **Llama 3.1 8B** déployés par défaut (tiennent à 100% en VRAM avec KV-cache). |
 | **Timeout Ingress sur réponses LLM longues** | Moyen | Élevée | Ingress Traefik configuré avec entrées HTTP/HTTPS et streaming temps réel. |
 | **Perte des modèles au redémarrage / sync ArgoCD** | Élevé | Faible | PVC dédié de 60 Go lié au stockage hôte sur `mini` (`local-path`). |
 | **Saturation CPU du master `linux2`** | Faible | Faible | Les calculs lourds d'inférence sont strictement isolés sur `mini` via `nodeSelector`. |
@@ -124,5 +115,5 @@ gantt
 | **J1 : Structure Kustomize & Application ArgoCD** | ✅ **RÉALISÉ** | Antigravity / Julien | 02/10/2026 |
 | **J2 : Inférence GPU Opérationnelle (Ollama/Gemma)** | ✅ **RÉALISÉ** | Antigravity / Julien | 02/10/2026 |
 | **J3 : Open WebUI accessible sur LAN** | ✅ **RÉALISÉ** | Antigravity / Julien | 02/10/2026 |
-| **J4 : n8n Déployé & Prêt pour Multi-Agents** | ✅ **RÉALISÉ** | Antigravity / Julien | 02/10/2026 |
+| **J4 : Serveur MCP Web Search Opérationnel** | ✅ **RÉALISÉ** | Antigravity / Julien | 02/10/2026 |
 | **J5 : Recette GitOps finale & Push GitHub** | ✅ **RÉALISÉ** | Antigravity / Julien | 02/10/2026 |
