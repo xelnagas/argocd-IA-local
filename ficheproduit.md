@@ -117,25 +117,25 @@ graph TD
 
 | Rôle Node | Hôte / IP | Caractéristiques | Rôle dans Jarvis |
 | :--- | :--- | :--- | :--- |
-| **Control Plane** | `192.168.1.160` (admin: `julien`) | K8s Master, API Server, etcd, ArgoCD Server | Gestion GitOps, supervision, orchestration |
-| **GPU Worker Node(s)** | Variable (ex: `192.168.1.x`) | CPU x86_64, RAM 32+ Go, **NVIDIA RTX (CUDA support)** | Exécution exclusive des pods d'inférence LLM (`nodeSelector: accelerator=nvidia-gpu`) |
-| **Standard Worker Node(s)** | Variable / Co-hébergé | CPU x86_64, RAM standard | Open WebUI, n8n, bases de données, contrôleurs Ingress |
+| **Control Plane** | `192.168.1.160` (admin: `julien`) | K8s Master, API Server, etcd, ArgoCD Server | Gestion GitOps, supervision, n8n |
+| **GPU Worker Node** | `mini` (`192.168.1.99`) | Intel 12 vCPUs, 15 Go RAM, **NVIDIA GeForce RTX 2070 SUPER (8 Go VRAM)** | Inférence Ollama GPU (`accelerator=nvidia-gpu`), Open WebUI |
+| **Edge Workers** | `pi1` (`192.168.1.24`), `piblanc` (`192.168.1.50`) | ARM64 Raspberry Pi | Trafic réseau, pods légers |
 
 ---
 
 ## 5. Exigences Non-Fonctionnelles
 
 ### 5.1. Performance & Latence
-* Débit d'inférence visé : minimum **15 à 25 tokens/seconde** pour une expérience de lecture fluide en direct.
-* Time-to-First-Token (TTFT) < 1.5s pour les prompts standards.
+* Débit d'inférence visé : minimum **15 à 35 tokens/seconde** pour une expérience de lecture fluide en direct (atteint ~30 tokens/s sur `gemma2:9b`).
+* Time-to-First-Token (TTFT) < 1.0s sur les requêtes locales.
 
 ### 5.2. Persistance & Stockage
-* **Modèles LLM** : Volume persistant de **100 Go minimum** (StorageClass locale rapide type NVMe / Local Path Provisioner / Longhorn).
-* **Données n8n & Open WebUI** : Volumes persistants de 10 à 20 Go avec politique de sauvegarde locale.
+* **Modèles LLM** : Volume persistant de **60 Go** (`ollama-models-pvc` sur `local-path` du nœud `mini`).
+* **Données n8n & Open WebUI** : Volumes persistants de 10 Go chacun avec rétention locale.
 
 ### 5.3. Résilience & Disponibilité
 * Tolérance aux pannes : redémarrage automatique des pods (`restartPolicy: Always`).
-* Isolement des charges : Taints/Tolerations pour s'assurer que les pods non-GPU ne saturent pas la mémoire des machines équipées de cartes RTX.
+* Isolement des charges : `nodeSelector: accelerator=nvidia-gpu` garantissant le ciblage exclusif de `mini`.
 
 ---
 
@@ -143,13 +143,15 @@ graph TD
 
 | Source | Destination | Port / Protocole | Description |
 | :--- | :--- | :--- | :--- |
-| Postes LAN (`192.168.1.*`) | Ingress Controller | 80/443 (HTTP/S) | Accès à Open WebUI & n8n UI |
-| Ingress Controller | `open-webui` Service | 8080 (TCP) | Trafic Web UI |
-| Ingress Controller | `n8n` Service | 5678 (TCP) | Interface & Webhooks n8n |
-| `open-webui` Pod | `inference-engine` Service | 8000 / 11434 (TCP) | Envoi des requêtes d'inférence chat |
-| `n8n` Pod | `inference-engine` Service | 8000 / 11434 (TCP) | Appels LLM des agents autonomes |
-| ArgoCD Controller | K8s API (`192.168.1.160:6443`) | 6443 (HTTPS) | Réconciliation de l'état désiré |
-| ArgoCD Controller | `github.com` | 443 (HTTPS / SSH) | Polling / Webhook du dépôt GitOps |
+| Postes LAN (`192.168.1.*`) | Ingress Controller | 80/443 (HTTP/S) | Accès via noms d'hôtes `jarvis.local` et `n8n.local` |
+| Postes LAN (`192.168.1.*`) | `jarvis-webui` Service | **30080** (TCP / NodePort) | Accès direct sans configuration DNS (`http://192.168.1.160:30080`) |
+| Postes LAN (`192.168.1.*`) | `jarvis-n8n` Service | **30578** (TCP / NodePort) | Accès direct sans configuration DNS (`http://192.168.1.160:30578`) |
+| Ingress Controller | `jarvis-webui` Service | 8080 (TCP) | Routage interne du trafic WebUI |
+| Ingress Controller | `jarvis-n8n` Service | 5678 (TCP) | Routage interne du trafic n8n |
+| `jarvis-webui` Pod | `jarvis-inference` Service | 11434 (TCP) | Envoi des requêtes de chat et streaming |
+| `jarvis-n8n` Pod | `jarvis-inference` Service | 11434 (TCP) | Appels LLM des agents autonomes (`/v1`) |
+| ArgoCD Controller | K8s API (`192.168.1.160:6443`) | 6443 (HTTPS) | Réconciliation GitOps déclarative |
+| ArgoCD Controller | `github.com` | 443 (HTTPS) | Synchronisation du dépôt `argocd-IA-local.git` |
 
 ---
 
