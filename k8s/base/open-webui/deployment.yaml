@@ -35,7 +35,7 @@ spec:
             - name: WEBUI_NAME
               value: "Jarvis AI"
             - name: DEFAULT_MODELS
-              value: "jarvis:latest"
+              value: "maxwellb/Qwen3.5-35B-A3B-Base:latest"
             - name: AUDIO_STT_ENGINE
               value: "openai"
             - name: AUDIO_STT_OPENAI_API_BASE_URL
