@@ -1,250 +1,262 @@
-# Manuel Utilisateur & Guide d'Exploitation : Plateforme Jarvis
+# 🤖 Manuel Utilisateur & Guide d'Exploitation : Plateforme Jarvis
 
-Bienvenue dans le manuel d'utilisation de **Jarvis**, votre infrastructure locale d'Intelligence Artificielle générative et d'orchestration multi-agents, auto-hébergée sur votre cluster Kubernetes bare-metal et pilotée par GitOps (ArgoCD).
-
----
-
-## Sommaire
-
-1. [Accès aux Services & Configuration Réseau Local](#1-accès-aux-services--configuration-réseau-local)
-2. [Guide Pratique : Open WebUI (Interface Chat & RAG)](#2-guide-pratique--open-webui-interface-chat--rag)
-3. [Gestion, Ajout & Création de Modèles (Moteur d'Inférence GPU)](#3-gestion-ajout--création-de-modèles-moteur-dinférence-gpu)
-4. [Recherche d'Informations sur Internet via Serveur MCP & RAG](#4-recherche-dinformations-sur-internet-via-serveur-mcp--rag)
-5. [Exploitation, Supervision & Maintenance GitOps](#5-exploitation-supervision--maintenance-gitops)
-6. [Résolution des Incidents Fréquents (Troubleshooting)](#6-résolution-des-incidents-fréquents-troubleshooting)
+Bienvenue sur le guide officiel de **J.A.R.V.I.S.**, votre infrastructure locale d'Intelligence Artificielle générative, de synthèse vocale et d'orchestration multi-agents, auto-hébergée sur votre cluster Kubernetes et pilotée par GitOps (ArgoCD).
 
 ---
 
-## 1. Accès aux Services & Configuration Réseau Local
+## 🧭 Sommaire
 
-### 1.1. Tableau des Points d'Accès
+* [⚡ 1. Démarrage Express en 30 Secondes](#-1-démarrage-express-en-30-secondes)
+* [🌐 2. Points d'Accès & Configuration Réseau (LAN)](#-2-points-daccès--configuration-réseau-lan)
+* [💬 3. Guide Pratique : Open WebUI (Interface Chat & RAG)](#-3-guide-pratique--open-webui-interface-chat--rag)
+* [🎙️ 4. Mode Vocal Voice-to-Voice (Whisper & Kokoro TTS Français)](#️-4-mode-vocal-voice-to-voice-whisper--kokoro-tts-français)
+* [🔍 5. Recherche Web en Direct (Serveur MCP & RAG Temps Réel)](#-5-recherche-web-en-direct-serveur-mcp--rag-temps-réel)
+* [🧠 6. Second Cerveau & Base Vectorielle Qdrant (Notes & Briefing)](#-6-second-cerveau--base-vectorielle-qdrant-notes--briefing)
+* [🚀 7. Modèles Disponibles & Ajout de Nouveaux Modèles (RTX 3070)](#-7-modèles-disponibles--ajout-de-nouveaux-modèles-rtx-3070)
+* [🛠️ 8. Exploitation, Stockage `/stockage` & Maintenance GitOps](#️-8-exploitation-stockage-stockage--maintenance-gitops)
+* [❓ 9. Résolution des Problèmes Fréquents (FAQ / Dépannage)](#-9-résolution-des-problèmes-fréquents-faq--dépannage)
 
-| Service | Rôle | URL Ingress (Nom d'hôte) | Accès Direct LAN (Sans modif DNS/hosts) | Protocole |
-| :--- | :--- | :--- | :--- | :--- |
-| **Open WebUI** | Interface Chat, RAG & Agents | **`http://jarvis.local/`** | **`http://192.168.1.160:30080`** | HTTP |
-| **Moteur d'Inférence (Ollama)** | API LLM GPU (Compatible OpenAI & native) | **`http://ollama.local/`** | **`http://192.168.1.160:31434`** | HTTP (REST / Streaming) |
-| **Serveur MCP (Web Search)** | Serveur d'outils MCP (Recherche DuckDuckGo & Web) | **`http://mcp.local/`** | **`http://192.168.1.160:30800`** | HTTP / MCP (Streamable HTTP / SSE) |
-| **ArgoCD** | Console de pilotage GitOps | `https://192.168.1.160/` | - | HTTPS |
+---
 
-### 1.2. Configuration du Fichier `hosts` sur vos Postes Clients (LAN)
+## ⚡ 1. Démarrage Express en 30 Secondes
 
-L'Ingress Traefik du cluster achemine le trafic en fonction du nom d'hôte HTTP (*Host Header*). Pour accéder facilement à **Jarvis**, **Ollama** et au serveur **MCP** depuis n'importe quel ordinateur ou smartphone connecté à votre réseau local (`192.168.1.0/24`) :
+Vous voulez commencer à échanger avec Jarvis tout de suite ? C'est très simple :
 
-#### Sous Windows :
-1. Ouvrez le Bloc-notes (ou un éditeur de texte) en tant qu'**Administrateur**.
+```mermaid
+flowchart LR
+    A[Ouvrir le navigateur] --> B["http://192.168.1.160:30080 ou http://jarvis.local"]
+    B --> C["Sélectionner jarvis:latest"]
+    C --> D[Discuter par texte ou à la voix 🎙️]
+```
+
+1. **Ouvrez votre navigateur** sur votre réseau local :
+   👉 **[`http://192.168.1.160:30080`](http://192.168.1.160:30080)** (accès direct immédiat sans configuration DNS)  
+   👉 ou **[`http://jarvis.local/`](http://jarvis.local/)** (si vous avez configuré le nom d'hôte).
+2. **Sélectionnez le modèle** en haut à gauche :
+   - **`jarvis:latest`** *(Recommandé)* : L'assistant complet avec style courtois, diagnostic système et compétences étendues.
+   - **`llama3.1:8b`** : Idéal pour les recherches web automatiques (Tool Calling).
+   - **`gemma2:9b`** : Puissant modèle de Google, rapide et très analytique.
+3. **Posez votre première question** ou cliquez sur l'icône **Microphone** pour lui parler !
+
+---
+
+## 🌐 2. Points d'Accès & Configuration Réseau (LAN)
+
+Tous les services de l'écosystème Jarvis sont centralisés sur la machine hôte **`192.168.1.160`** (`linux2`) propulsée par la carte graphique **NVIDIA GeForce RTX 3070 (8 Go VRAM)**.
+
+### 2.1. Tableau des Services & URLs
+
+| Service | Icône / Rôle | Accès Direct LAN (Sans configuration) | Accès via Ingress (Nom convivial) | Statut |
+| :--- | :--- | :--- | :--- | :---: |
+| **Open WebUI** | 💬 Interface Chat, Documents & Voix | **[`http://192.168.1.160:30080`](http://192.168.1.160:30080)** | **`http://jarvis.local/`** | 🟢 En ligne |
+| **Ollama GPU API** | ⚡ Moteur d'Inférence LLM (OpenAI compatible) | **[`http://192.168.1.160:31434`](http://192.168.1.160:31434)** | **`http://ollama.local/`** | 🟢 En ligne |
+| **Serveur MCP Search** | 🔍 Recherche Web DuckDuckGo en direct | **[`http://192.168.1.160:30800/mcp`](http://192.168.1.160:30800/mcp)** | **`http://mcp.local/mcp`** | 🟢 En ligne |
+| **Qdrant Vector DB** | 🧠 Base Vectorielle (Second Cerveau) | **`http://192.168.1.160:30333`** | **`http://qdrant.local/`** | 🟢 En ligne |
+| **ArgoCD GitOps** | 🐙 Console d'orchestration GitOps | **`https://192.168.1.160/`** | - | 🟢 En ligne |
+
+---
+
+### 2.2. Configuration du Fichier `hosts` (Optionnel pour utiliser `jarvis.local`)
+
+Pour taper directement `http://jarvis.local/` au lieu de l'adresse IP et du numéro de port, ajoutez une ligne dans le fichier `hosts` de votre ordinateur :
+
+#### 🪟 Sous Windows :
+1. Lancez le **Bloc-notes** en faisant un clic droit > **Exécuter en tant qu'administrateur**.
 2. Ouvrez le fichier : `C:\Windows\System32\drivers\etc\hosts`.
-3. Ajoutez la ligne suivante à la fin du fichier :
+3. Ajoutez cette ligne tout en bas du fichier :
    ```text
-   192.168.1.160 jarvis.local ollama.local mcp.local
+   192.168.1.160 jarvis.local ollama.local mcp.local qdrant.local
    ```
-4. Enregistrez le fichier.
+4. Enregistrez (`Ctrl + S`).
 
-#### Sous Linux / macOS :
-1. Ouvrez un terminal et éditez `/etc/hosts` avec les droits root :
-   ```bash
-   sudo nano /etc/hosts
-   ```
-2. Ajoutez la ligne suivante :
-   ```text
-   192.168.1.160 jarvis.local ollama.local mcp.local
-   ```
-3. Sauvegardez (`Ctrl+O` puis `Ctrl+X`).
+#### 🐧 Sous Linux / 🍏 macOS :
+Ouvrez un terminal et exécutez :
+```bash
+sudo sh -c 'echo "192.168.1.160 jarvis.local ollama.local mcp.local qdrant.local" >> /etc/hosts'
+```
 
 > [!TIP]
-> Si vous disposez d'un serveur DNS local (ex: Pi-hole, AdGuard Home, ou DNS de routeur/box), vous pouvez ajouter directement une entrée DNS de type `A` pointant `*.local` ou `jarvis.local` vers l'IP `192.168.1.160`. Ainsi, tous les équipements de votre maison y auront accès sans configuration individuelle.
+> **Pour toute la maison en une seule fois :**  
+> Si vous utilisez **Pi-hole**, **AdGuard Home** ou le serveur DNS local de votre box/routeur, ajoutez une redirection DNS locale de `*.local` ou `jarvis.local` vers `192.168.1.160`. Tous vos ordinateurs, tablettes et téléphones y auront accès sans aucune manipulation !
 
 ---
 
-## 2. Guide Pratique : Open WebUI (Interface Chat & RAG)
+## 💬 3. Guide Pratique : Open WebUI (Interface Chat & RAG)
 
-Open WebUI est l'interface utilisateur web pour dialoguer avec les modèles d'IA locaux hébergés sur la carte graphique **NVIDIA GeForce RTX 2070 SUPER**.
+Open WebUI est votre portail d'échange principal, riche en fonctionnalités et inspiré des meilleures interfaces d'IA modernes.
 
-### 2.1. Démarrage Rapide
-1. Ouvrez votre navigateur sur **`http://jarvis.local`**.
-2. L'interface d'accueil s'affiche directement (authentification désactivée par défaut pour un confort d'usage immédiat sur le LAN).
-3. En haut à gauche, vérifiez que le modèle sélectionné est bien **`gemma2:9b`**.
-4. Tapez votre question dans le champ de saisie en bas et appuyez sur **Entrée**. Le modèle génère sa réponse en streaming temps réel.
+### 3.1. Les fonctionnalités clés
 
-### 2.2. Fonctionnalités Avancées
-
-#### A. RAG (Retrieval-Augmented Generation) / Recherche Documentaire
-Vous pouvez fournir des documents à Jarvis pour qu'il réponde à partir de vos propres données privées :
-1. Cliquez sur l'icône **`+`** (ou trombone) à gauche de la zone de texte.
-2. Déposez un fichier (PDF, Markdown, texte brut, CSV, etc.).
-3. Posez une question sur le contenu du fichier (ex: *"Résume les 3 points clés de ce rapport"*).
-4. Jarvis lit le document, génère les embeddings vectoriels localement et formule sa réponse en citant les sources.
-
-#### B. Personas & Prompts Système Spécialisés
-Pour créer des assistants spécialisés (ex: Expert DevOps Kubernetes, Rédacteur Technique, Correcteur orthographique) :
-1. Cliquez sur votre icône de profil en bas à gauche > **Modèles** (ou **Workspace** > **Models**).
-2. Cliquez sur **Créer un Modèle**.
-3. Remplissez le nom (ex: *Jarvis DevOps*), choisissez le modèle de base (`gemma2:9b`), et saisissez le **System Prompt** décrivant son rôle et ses directives.
-4. Enregistrez : le modèle personnalisé apparaît désormais dans la liste déroulante des chats.
-
-#### C. Contrôle des Paramètres de Génération
-En cliquant sur l'icône de réglages en haut à droite d'une conversation :
-* **Température (0.0 à 1.0)** :
-  * `0.1 - 0.3` : Réponses déterministes, idéales pour le code, les maths et la logique.
-  * `0.7 - 0.8` : Réponses créatives, idéales pour la rédaction et le brainstorming.
-* **Context Length (Fenêtre de contexte)** : configuré par défaut à 4096 tokens pour optimiser l'usage des 8 Go de VRAM.
+* **💬 Discussions Multi-Modèles** : Passez d'un modèle à l'autre en un clic au cours d'une conversation.
+* **📎 Analyse de Documents (RAG)** : Glissez-déposez n'importe quel fichier (PDF, Markdown, Word, texte, CSV) dans la zone de chat. Jarvis l'indexe instantanément et répond précisément en citant ses sources.
+* **🎨 Personas / Assistants spécialisés** : Créez des profils préconfigurés (ex: *Expert DevOps*, *Réviseur de code*, *Spécialiste Docker*).
+* **📚 Historique & Organisation** : Vos échanges sont sauvegardés par dossiers et étiquettes (*Tags*).
 
 ---
 
-## 3. Gestion, Ajout & Création de Modèles (Moteur d'Inférence GPU)
+### 3.2. Conseils pour des Réponses Parfaites
 
-Les poids des modèles sont stockés et persistés dans le volume de 60 Go (`ollama-models-pvc`) situé sur le stockage rapide du nœud worker GPU `mini`.
+| Objectif | Réglage suggéré | Comment faire ? |
+| :--- | :--- | :--- |
+| **Code informatique, scripts, maths** | Température basse (**0.1 à 0.2**) | Cliquez sur l'icône de réglages (curseurs) en haut à droite > Réduisez la **Température**. Les réponses seront rigoureuses et déterministes. |
+| **Rédaction, idées, synthèse littéraire** | Température moyenne (**0.7 à 0.8**) | Augmentez légèrement la température pour plus d'inventivité. |
+| **Questions sur un document long** | Fenêtre de contexte (**8192 tokens**) | Augmentez la valeur de contexte pour permettre à l'IA d'analyser des dizaines de pages d'un seul bloc. |
 
-### 4.1. Accès Réseau Local à l'API & Interface d'Inférence
+---
 
-Le moteur d'inférence est directement accessible depuis n'importe quelle machine de votre réseau local (`192.168.1.0/24`) sans restriction :
+## 🎙️ 4. Mode Vocal Voice-to-Voice (Whisper & Kokoro TTS Français)
 
-* **Accès Direct par IP (Recommandé pour scripts & outils)** :
-  ```text
-  http://192.168.1.160:31434
-  ```
-* **Accès via Ingress (Nom d'hôte)** :
-  ```text
-  http://ollama.local/
-  ```
+Jarvis dispose d'une boucle vocale complète et instantanée :
+1. **Écoute (STT)** : Reconnaissance vocale par **Faster-Whisper** (< 200 ms).
+2. **Réflexion (LLM)** : Inférence GPU accélérée par la **RTX 3070**.
+3. **Voix (TTS)** : Synthèse vocale naturelle par **Kokoro TTS** avec la voix française haute fidélité **`ff_siwis`**.
 
-Pour tester l'accessibilité depuis un terminal local (PowerShell, Bash) :
-```bash
-# Vérifier que le moteur d'inférence répond
-curl http://192.168.1.160:31434/
+```mermaid
+sequenceDiagram
+    autonumber
+    actor User as 👤 Utilisateur
+    participant UI as 🖥️ Open WebUI
+    participant STT as 🎙️ Faster-Whisper (STT)
+    participant LLM as ⚡ Ollama (RTX 3070)
+    participant TTS as 🔊 Kokoro TTS (ff_siwis)
 
-# Obtenir la liste des modèles chargés en JSON
-curl http://192.168.1.160:31434/api/tags
+    User->>UI: Parle dans le microphone
+    UI->>STT: Flux audio (WAV/WebM)
+    STT-->>UI: Transcription texte français
+    UI->>LLM: Prompt utilisateur
+    LLM-->>UI: Réponse générée
+    UI->>TTS: Synthèse de la réponse
+    TTS-->>UI: Flux audio naturel français
+    UI-->>User: Émission vocale de J.A.R.V.I.S.
 ```
 
 ---
 
-### 4.2. Méthode 1 : Ajout en 1 Clic via l'Interface Open WebUI (Le plus simple)
+### 4.1. Configuration de la Voix Française en 3 Clics
 
-C'est la méthode recommandée pour un usage quotidien sans ligne de commande :
+Pour vous assurer que Jarvis vous répond avec sa voix française naturelle :
 
-1. Ouvrez **`http://jarvis.local`** (ou `http://192.168.1.160:30080`).
-2. Cliquez sur l'icône de profil en bas à gauche > **Admin Settings** (Panneau d'administration).
-3. Rendez-vous dans l'onglet **Models** (Modèles).
-4. Dans le champ **Pull a model from Ollama.com**, saisissez l'identifiant du modèle souhaité :
-   * Exemples : `llama3.1:8b`, `mistral:7b`, `phi3:mini`, `qwen2.5:7b`, `gemma2:2b`, `deepseek-coder-v2:16b`.
-5. Cliquez sur le bouton de téléchargement (flèche vers le bas).
-6. Le modèle est téléchargé en arrière-plan avec barre de progression. Dès la fin, il apparaît automatiquement dans la liste de vos conversations.
+1. Dans Open WebUI, cliquez sur votre **Profil** (en bas à gauche) puis sur **Paramètres** (icône roue crantée).
+2. Rendez-vous dans l'onglet **Audio** :
+   - **Moteur de synthèse vocale (TTS Engine)** : Laissez sur **Par défaut** (*Default*) ou vide.
+   - **Voix (Voice)** : Indiquez **`ff_siwis`**.
+3. Cliquez sur **Enregistrer**.
 
----
-
-### 4.3. Méthode 2 : Téléchargement via l'API REST depuis n'importe quel Poste du LAN
-
-Grâce à l'exposition directe du port `31434`, vous pouvez déclencher le téléchargement d'un nouveau modèle depuis n'importe quel script, terminal ou outil HTTP du réseau local :
-
-#### En Bash / cURL :
-```bash
-curl http://192.168.1.160:31434/api/pull -d '{
-  "name": "llama3.1:8b"
-}'
-```
-
-#### En PowerShell (Windows) :
-```powershell
-Invoke-RestMethod -Uri "http://192.168.1.160:31434/api/pull" -Method Post -Body '{"name": "mistral:7b"}'
-```
-
-Le téléchargement s'exécute directement sur le cluster et écrit dans le stockage persistant `ollama-models-pvc`.
+> [!WARNING]
+> **Ne sélectionnez PAS « Kokoro.js » dans la liste déroulante :**  
+> L'option *Kokoro.js* s'exécute localement dans le navigateur et ne supporte que l'anglais.  
+> En conservant **Par défaut**, la génération est déléguée au cluster Kubernetes (`jarvis-voice-tts`), qui dispose de la voix française complète **`ff_siwis`**.
 
 ---
 
-### 4.4. Méthode 3 : En Ligne de Commande Kubernetes (`kubectl exec`)
+### 4.2. Autorisation du Microphone dans le Navigateur
 
-Pour les administrateurs disposant de l'accès `kubectl` :
-```bash
-# Télécharger un modèle léger pour tests instantanés (Gemma 2 2B ~1.6 Go)
-kubectl exec -it -n jarvis-system deploy/jarvis-inference -- ollama pull gemma2:2b
+Les navigateurs récents bloquent l'accès au microphone sur les adresses en simple `http://`.  
+Si un message vous indique **« Accès aux appareils multimédias refusé »**, suivez l'une de ces 2 méthodes :
 
-# Télécharger Llama 3.1 8B (optimisé pour agents et code)
-kubectl exec -it -n jarvis-system deploy/jarvis-inference -- ollama pull llama3.1:8b
-
-# Télécharger Qwen 2.5 Coder 7B (excellent pour l'autocomplétion de code)
-kubectl exec -it -n jarvis-system deploy/jarvis-inference -- ollama pull qwen2.5-coder:7b
-```
+#### Méthode Rapide (Moins d'une minute sur Chrome ou Edge) :
+1. Dans la barre d'adresse de votre navigateur, collez :
+   - Pour Google Chrome : `chrome://flags/#unsafely-treat-insecure-origin-as-secure`
+   - Pour Microsoft Edge : `edge://flags/#unsafely-treat-insecure-origin-as-secure`
+2. Passez l'option sur **Enabled**.
+3. Dans la zone de texte, renseignez :
+   ```text
+   http://192.168.1.160:30080, http://jarvis.local
+   ```
+4. Cliquez sur le bouton bleu **Relaunch** (Relancer). Le microphone est immédiatement débloqué !
 
 ---
 
-### 4.5. Méthode 4 : Création d'un Modèle Personnalisé avec un `Modelfile`
+## 🔍 5. Recherche Web en Direct (Serveur MCP & RAG Temps Réel)
 
-Vous pouvez créer vos propres modèles sur-mesure (avec System Prompt figé, température personnalisée, etc.) à partir d'un modèle existant.
+Jarvis peut explorer Internet en temps réel pour vérifier une information récente, consulter la documentation d'une librairie ou vérifier une actualité.
 
-1. Créez un fichier nommé `Modelfile` sur votre poste ou dans le pod :
-   ```dockerfile
-   # Modelfile pour créer Jarvis-DevOps
-   FROM gemma2:9b
+### 5.1. Comment l'activer dans votre chat ?
 
-   # Température basse pour des réponses techniques précises
-   PARAMETER temperature 0.2
-   PARAMETER num_ctx 8192
+Deux méthodes au choix :
 
-   # Prompt système définissant la personnalité de l'agent
-   SYSTEM """
-   Tu es Jarvis-DevOps, un ingénieur Senior Kubernetes, GitOps, Docker et Linux.
-   Tu réponds en français, avec concision, en fournissant systématiquement des commandes
-   ou des manifests YAML prêts pour la production.
-   """
-   ```
+#### Option A : Le Bouton Globe 🌐 (Le plus rapide)
+- Sous la zone de texte du chat, cliquez sur l'icône **Globe 🌐** (*Web Search*).
+- Posez votre question : Open WebUI recherche les informations sur DuckDuckGo et les intègre au prompt de Jarvis. Fonctionne avec **tous les modèles**.
 
-2. Exécutez la création du modèle :
-   ```bash
-   # Créer le modèle personnalisé
-   kubectl exec -i -n jarvis-system deploy/jarvis-inference -- ollama create jarvis-devops -f - < Modelfile
-   ```
-
-3. Le modèle `jarvis-devops` est instantanément disponible dans Open WebUI !
+#### Option B : Le Tool Calling MCP (Le plus autonome & intelligent)
+- En haut de l'écran, sélectionnez le modèle **`llama3.1:8b`** (optimisé pour appeler des outils).
+- À gauche du champ de saisie, cliquez sur le bouton **`+` (Outils / Tools)** et cochez **`MCP Web Search`**.
+- L'IA décide de manière autonome quand elle a besoin de chercher sur Internet via les outils :
+  - **`search_internet`** : Recherche multi-résultats DuckDuckGo.
+  - **`fetch_web_page`** : Lecture et analyse du texte intégral d'une page web sans publicité.
 
 ---
 
-### 4.6. Méthode 5 : Importer des Modèles GGUF Externes (Hugging Face)
+## 🧠 6. Second Cerveau & Base Vectorielle Qdrant (Notes & Briefing)
 
-Si vous souhaitez utiliser un modèle spécifique ou une quantification fine téléchargée depuis Hugging Face (fichier `.gguf`) :
+Jarvis intègre un système d'ingestion continue de vos connaissances personnelles et un briefing matinal automatisé :
 
-1. Déposez votre fichier `.gguf` dans le répertoire des modèles d'Ollama sur le nœud `mini` (ou via `kubectl cp`) :
-   ```bash
-   kubectl cp mon-modele-custom.Q4_K_M.gguf jarvis-system/<nom-du-pod>:/root/.ollama/mon-modele.gguf
-   ```
-2. Créez un `Modelfile` pointant vers ce fichier :
-   ```dockerfile
-   FROM /root/.ollama/mon-modele.gguf
-   PARAMETER temperature 0.7
-   ```
-3. Compilez-le dans Ollama :
-   ```bash
-   kubectl exec -it -n jarvis-system deploy/jarvis-inference -- ollama create mon-modele-custom -f /root/.ollama/Modelfile
-   ```
+* **Base Vectorielle Qdrant** : Stocke la mémoire sémantique dans la collection `jarvis_second_brain`.
+* **Worker d'Ingestion Continue (`jarvis-ingestor`)** :
+  - Surveille en permanence vos notes et documents déposés dans le volume `jarvis-notes-pvc`.
+  - Calcule automatiquement les embeddings avec le modèle `nomic-embed-text` et les indexe dans Qdrant.
+* **Briefing Matinal (`jarvis-morning-digest`)** :
+  - Chaque matin à **07h30**, une tâche planifiée analyse l'état de l'infrastructure, vos notes récentes et génère un compte-rendu quotidien :  
+    `Daily-Briefings/Briefing-YYYY-MM-DD.md`.
+  - Possibilité de recevoir ce briefing par notification Webhook (Discord, Telegram, ntfy).
 
 ---
 
-### 4.7. Méthode 6 : Connexion d'Outils Tiers sur le Réseau Local
+## 🚀 7. Modèles Disponibles & Ajout de Nouveaux Modèles (RTX 3070)
 
-L'exposition réseau sur le port `31434` permet à vos applications préférées d'exploiter la carte **RTX 2070 SUPER** du cluster :
+Grâce à la carte graphique **NVIDIA GeForce RTX 3070 (8 Go VRAM GDDR6, architecture Ampere)** installée sur `192.168.1.160`, l'inférence locale bénéficie d'une accélération matérielle de premier ordre (~35 à 50+ tokens/seconde).
 
-#### A. Connexion depuis LM Studio / Chatbox / Jan :
-Dans votre application cliente sur PC :
-* **Type de fournisseur** : Ollama (ou OpenAI Compatible)
-* **Base URL** : `http://192.168.1.160:31434` (ou `http://192.168.1.160:31434/v1` en mode OpenAI)
-* **API Key** : `ollama` (ou n'importe quel texte)
+### 7.1. Modèles Déjà Prêts & Installés
 
-#### B. Connexion depuis VS Code (Extensions Continue.dev ou Cline) :
-Dans la configuration `~/.continue/config.json` :
+| Modèle | Empreinte VRAM | Vitesse mesurée | Points forts & Cas d'usage |
+| :--- | :---: | :---: | :--- |
+| **`jarvis:latest`** | ~5.4 Go | **~35-40 tok/s** | **Assistant Principal** : Style majordome, synthèse, DevOps et orchestration. |
+| **`gemma2:9b`** | ~5.4 Go | **~35 tok/s** | **Raisonnement Google** : Excellent en français, logique et analyse technique. |
+| **`llama3.1:8b`** | ~4.9 Go | **~45 tok/s** | **Recherche Web & Outils MCP** : Champion pour le Tool Calling et formats JSON. |
+| **`nomic-embed-text`** | ~0.3 Go | **Instantané** | **Embeddings** : Vectorisation haute précision des documents pour le RAG. |
+| **`Qwen3.5-35B-A3B`** | ~21 Go | Hybride (RAM+GPU) | **Grand Modèle MoE** : Pour des analyses de fond nécessitant un vaste contexte. |
+
+---
+
+### 7.2. Ajouter un Modèle en 1 Clic (Sans Ligne de Commande)
+
+Vous pouvez enrichir votre bibliothèque de modèles directement depuis l'interface web :
+
+1. Connectez-vous sur **`http://192.168.1.160:30080`**.
+2. Cliquez sur votre icône de profil en bas à gauche > **Panneau d'administration (Admin Settings)**.
+3. Allez dans l'onglet **Modèles (Models)**.
+4. Dans le champ **Pull a model from Ollama.com**, tapez le nom du modèle :
+   - Exemples populaires adaptés à la RTX 3070 : `qwen2.5-coder:7b`, `mistral:7b`, `phi3:mini`, `deepseek-r1:8b`.
+5. Cliquez sur le bouton de téléchargement (flèche ⬇️).
+6. Le modèle est téléchargé avec une barre de progression et sera automatiquement disponible pour tous les utilisateurs dès la fin du téléchargement !
+
+---
+
+### 7.3. Utiliser Jarvis avec Vos Outils Favoris (VS Code, Cursor, Python)
+
+Le moteur d'inférence est directement accessible depuis n'importe quelle machine du réseau local sans restriction :
+
+* **Base URL OpenAI compatible** : `http://192.168.1.160:31434/v1`
+* **Base URL Ollama native** : `http://192.168.1.160:31434`
+* **Clé API** : `ollama` (ou n'importe quel mot-clé)
+
+#### Exemple pour VS Code (Extension Continue.dev) :
+Dans votre fichier `~/.continue/config.json` :
 ```json
 {
   "models": [
     {
-      "title": "Jarvis Gemma 2 9B (Local GPU)",
+      "title": "Jarvis RTX 3070",
       "provider": "ollama",
-      "model": "gemma2:9b",
+      "model": "jarvis:latest",
       "apiBase": "http://192.168.1.160:31434"
     }
   ]
 }
 ```
 
-#### C. Exemple en Python (avec le SDK OpenAI) :
+#### Exemple en Python (avec la librairie `openai`) :
 ```python
 from openai import OpenAI
 
@@ -253,316 +265,92 @@ client = OpenAI(
     api_key="ollama"
 )
 
-response = client.chat.completions.create(
-    model="gemma2:9b",
-    messages=[{"role": "user", "content": "Quelle est la météo sur Mars ?"}]
+reponse = client.chat.completions.create(
+    model="jarvis:latest",
+    messages=[{"role": "user", "content": "Bonjour Jarvis, quel est l'état du système ?"}]
 )
 
-print(response.choices[0].message.content)
+print(reponse.choices[0].message.content)
 ```
 
 ---
 
-### 4.8. Inventaire & Suppression de Modèles
+## 🛠️ 8. Exploitation, Stockage `/stockage` & Maintenance GitOps
+
+### 8.1. Architecture du Stockage (Migration `/stockage`)
+
+Afin d'éviter toute saturation de la partition système racine `/` (SSD NVMe), l'ensemble du stockage Kubernetes, des images Docker et des modèles d'IA a été migré sur le disque haute capacité **`/stockage`** (disque Seagate IronWolf de 8 To) :
+
+```
+/stockage/system-storage/
+├── rancher/   --> Monté en bind-mount transparent sur /var/lib/rancher (K3s, PVCs, modèles)
+├── docker/    --> Monté en bind-mount transparent sur /var/lib/docker (moteur Docker)
+└── kubelet/   --> Monté en bind-mount transparent sur /var/lib/kubelet (volumes pods)
+```
+
+* **Partition racine `/`** : Libérée à **22% d'utilisation (74 Go libres)**.
+* **Partition `/stockage`** : Plus de **2.0 To d'espace libre** pour accueillir vos modèles de LLM volumineux en toute sérénité.
+* **Persistance** : Tous les montages sont configurés dans `/etc/fstab` et survivent aux redémarrages de la machine.
+
+---
+
+### 8.2. Commandes Utiles pour l'Exploitation
+
+Depuis votre terminal (ou en SSH sur `julien@192.168.1.160`) :
 
 ```bash
-# Lister tous les modèles présents sur le GPU
-kubectl exec -n jarvis-system deploy/jarvis-inference -- ollama list
+# 1. Vérifier l'état de la carte graphique RTX 3070 et la VRAM
+ssh julien@192.168.1.160 "nvidia-smi"
 
-# Ou via curl depuis votre PC :
-curl -s http://192.168.1.160:31434/api/tags | jq .
+# 2. Vérifier que tous les pods Jarvis tournent correctement
+ssh julien@192.168.1.160 "kubectl get pods -n jarvis-system -o wide"
 
-# Supprimer un modèle pour libérer de l'espace disque
-kubectl exec -it -n jarvis-system deploy/jarvis-inference -- ollama rm <nom-modele>
+# 3. Consulter les logs d'inférence en direct
+ssh julien@192.168.1.160 "kubectl logs -f -n jarvis-system deploy/jarvis-inference"
 
-# Ou via curl :
-curl -X DELETE http://192.168.1.160:31434/api/delete -d '{"name": "modele-a-supprimer"}'
+# 4. Redémarrer un service sans perte de données (ex: WebUI)
+ssh julien@192.168.1.160 "kubectl rollout restart deploy/jarvis-webui -n jarvis-system"
 ```
 
 ---
 
-### 4.9. Tableau Comparatif & Dimensionnement VRAM (RTX 2070 SUPER 8 Go)
+### 8.3. La Règle d'Or GitOps (ArgoCD)
 
-| Modèle | Empreinte VRAM | Débit Mesuré | Cas d'usage idéal |
-| :--- | :--- | :--- | :--- |
-| **`gemma2:9b`** *(Installé)* | ~5.4 Go | **~30 tokens/s** | **Polyvalent par excellence** : Chat, raisonnement, code, français impeccable. |
-| **`nomic-embed-text`** *(Installé)* | ~0.3 Go | **Instantané** | **Embeddings & RAG** : Indexation sémantique ultra-rapide de documents. |
-| **`llama3.1:8b`** | ~4.9 Go | **~35 tokens/s** | **Tool Calling & MCP** : Modèle de référence pour l'utilisation d'outils et requêtes JSON. |
-| **`qwen2.5-coder:7b`** | ~4.7 Go | **~35 tokens/s** | Développement informatique, écriture de scripts Python/Bash/YAML. |
-| **`gemma2:2b`** | ~1.6 Go | **~65 tokens/s** | Traitements de masse en temps réel, micro-agents, classification. |
-| **`gemma:26b`** | ~15 Go (Hybride) | **~8-12 tokens/s** | Analyses documentaires complexes nécessitant une grande profondeur. |
-
----
-
-## 4. Recherche d'Informations sur Internet via Serveur MCP & RAG
-
-Pour que les modèles d'IA locaux hébergés sur Ollama puissent rechercher des informations en direct sur Internet à la demande, la plateforme **Jarvis** intègre un **Serveur MCP dédié (Model Context Protocol)** couplé au mécanisme de **Tool Calling** (appel de fonctions) et au RAG web temps réel.
-
-```
-                               ┌─────────────────────────────────────────────────────────────┐
-                               │                    CLUSTER KUBERNETES                       │
-                               │                                                             │
-┌──────────────┐   Chat/Tool   │  ┌──────────────┐    Tool Spec & Exec   ┌────────────────┐  │
-│              │──────────────>│  │              │<─────────────────────>│   Serveur MCP  │  │   Requête Web
-│  Utilisateur │               │  │  OPEN WEBUI  │                       │   (mcp-search) │──┼────────────────> ┌──────────────┐
-│   (Navig.)   │<──────────────│  │ (Client MCP) │                       │  (port 8000)   │  │   DuckDuckGo    │              │
-│              │   Résultat    │  └──────┬───────┘                       └────────────────┘  │<──────────────── │  INTERNET    │
-└──────────────┘               │         │ Inférence +                                       │   Extraits/HTML │ (DuckDuckGo, │
-                               │         │ Tool Calling                                      │                 │  Pages Web)  │
-                               │         ▼                                                   │                 └──────────────┘
-                               │  ┌──────────────┐                                           │
-                               │  │    OLLAMA    │ (Exécute llama3.1:8b avec Tool Calling    │
-                               │  │ (RTX 2070 S) │  ou gemma2:9b avec RAG Web Search)        │
-                               │  └──────────────┘                                           │
-                               └─────────────────────────────────────────────────────────────┘
-```
-
----
-
-### 5.1. Qu'est-ce que le Serveur MCP (`jarvis-mcp-search`) ?
-
-Le protocole **Model Context Protocol (MCP)** est le standard moderne permettant aux modèles de langage d'intéragir de façon standardisée et sécurisée avec des outils externes.
-
-Le composant Kubernetes `jarvis-mcp-search` (déployé dans le namespace `jarvis-system`) expose deux outils fondamentaux :
-
-| Nom de l'Outil (*Tool*) | Description | Paramètres |
-| :--- | :--- | :--- |
-| **`search_internet`** | Effectue une recherche web via DuckDuckGo et renvoie les titres, extraits et URL. | `query` (texte de la recherche), `max_results` (défaut : 5) |
-| **`fetch_web_page`** | Télécharge une page web complète, extrait et nettoie son contenu textuel sans publicité. | `url` (adresse http/https), `max_chars` (défaut : 3000) |
-
-Le serveur MCP est accessible sur le réseau local via :
-* **Ingress** : `http://mcp.local/mcp`
-* **Port direct (NodePort)** : `http://192.168.1.160:30800/mcp`
-* **DNS interne Kubernetes** : `http://jarvis-mcp-search.jarvis-system.svc.cluster.local:8000/mcp`
-
----
-
-### 5.2. Deux Modes de Recherche Disponibles selon le Modèle Utilisé
-
-La plateforme offre deux manières complémentaires d'effectuer des recherches sur le Web :
-
-| Fonctionnalité | **Mode A : Tool Calling MCP (Model Context Protocol)** | **Mode B : RAG Web Search Direct (Bouton Globe 🌐)** |
-| :--- | :--- | :--- |
-| **Principe** | Le modèle d'IA analyse la question et **décide lui-même** d'appeler l'outil `search_internet` du serveur MCP quand il en a besoin. | La recherche est exécutée systématiquement par l'interface Open WebUI avant l'envoi au modèle. |
-| **Modèles supportés** | Modèles compatibles *Tool Calling* : **`llama3.1:8b`**, `qwen2.5:7b`, `mistral:7b`. | **Tous les modèles**, y compris **`gemma2:9b`** et `gemma2:2b`. |
-| **Activation** | Sélectionner le bouton **Outils (+)** > Cocher **MCP Web Search**. | Cliquer sur l'icône **Globe 🌐** sous la zone de texte. |
-| **Contrôle & Autonomie** | Autonomie totale : l'IA peut enchaîner plusieurs recherches et approfondir en lisant une page complète via `fetch_web_page`. | Injection statique des 3 meilleurs résultats DuckDuckGo dans le prompt. |
-
----
-
-### 5.3. Comment Utiliser le Tool MCP dans Open WebUI (Pas à Pas)
-
-1. Rendez-vous sur votre interface : **`http://jarvis.local/`** (ou `http://192.168.1.160:30080`).
-2. En haut de l'écran, sélectionnez un modèle supportant le *Tool Calling* (recommandé : **`llama3.1:8b`**).
-3. En bas, juste à gauche du champ de saisie du prompt, cliquez sur le bouton **`+` (Outils / Tools)** :
-   * Cochez l'outil **`MCP Web Search`**.
-4. Posez votre question au modèle, par exemple :
-   * *"Recherche sur Internet les nouveautés de la version 1.32 de Kubernetes et résume-moi les points clés."*
-   * *"Qui a gagné le dernier Grand Prix de Formule 1 ?"*
-   * *"Quelles sont les dernières actus sur le lanceur Starship d'aujourd'hui ?"*
-5. Observez le comportement de l'IA :
-   * Le modèle émet un appel d'outil `search_internet` vers le serveur MCP.
-   * L'interface affiche l'outil invoqué avec ses paramètres.
-   * Le modèle reçoit les données fraîches du serveur MCP et formule une réponse complète et documentée avec les liens sources.
-
----
-
-### 5.4. Utiliser le Serveur MCP depuis Vos Outils Externes (LAN)
-
-Grâce à l'exposition sur le port NodePort `30800` et sur `http://mcp.local/mcp`, vous pouvez connecter votre serveur MCP de recherche web à vos applications de bureau favorites sur votre réseau local :
-
-#### A. Configuration dans Claude Desktop (`claude_desktop_config.json`) :
-```json
-{
-  "mcpServers": {
-    "jarvis-search": {
-      "command": "npx",
-      "args": [
-        "-y",
-        "@modelcontextprotocol/server-sse-proxy",
-        "http://192.168.1.160:30800/mcp"
-      ]
-    }
-  }
-}
-```
-
-#### B. Configuration dans VS Code (Extensions Cline / Roo Code / Continue.dev) :
-Dans les paramètres de l'extension, configurez un serveur MCP de type `streamable-http` (ou `sse`) pointant vers :
-* **URL** : `http://192.168.1.160:30800/mcp`
-* **Transport** : `streamable-http` / `sse`
-
-#### C. Test Direct en Python (Client MCP Officiel) :
-```python
-import asyncio
-from mcp.client.streamable_http import streamablehttp_client
-from mcp import ClientSession
-
-async def main():
-    async with streamablehttp_client("http://192.168.1.160:30800/mcp") as (read_stream, write_stream, _):
-        async with ClientSession(read_stream, write_stream) as session:
-            await session.initialize()
-            # Lister les outils
-            tools = await session.list_tools()
-            print("Outils MCP disponibles :", [t.name for t in tools.tools])
-
-            # Exécuter une recherche internet
-            result = await session.call_tool("search_internet", {"query": "ArgoCD GitOps Kubernetes", "max_results": 2})
-            print("\nRésultats de la recherche :\n", result.content[0].text)
-
-asyncio.run(main())
-```
-
----
-
-## 5. Exploitation, Supervision & Maintenance GitOps
-
-### 5.1. Vérification de l'État de l'Application ArgoCD
-Pour vérifier que l'infrastructure est conforme et sans dérive :
-```bash
-kubectl get app jarvis -n argocd
-# Résultat attendu : SYNC STATUS = Synced / HEALTH STATUS = Healthy
-```
-
-### 5.2. Surveiller l'Utilisation GPU et la VRAM en Direct
-Pour observer la consommation énergétique, la température et la mémoire occupée de la RTX 2070 SUPER lors d'une génération :
-```bash
-kubectl exec -n jarvis-system deploy/jarvis-inference -- nvidia-smi
-```
-
-Pour une surveillance en continu toutes les 2 secondes :
-```bash
-kubectl exec -it -n jarvis-system deploy/jarvis-inference -- watch -n 2 nvidia-smi
-```
-
-### 5.3. Consulter les Logs des Services
-En cas de comportement inattendu :
-```bash
-# Logs du moteur d'inférence (requêtes LLM, temps de calcul)
-kubectl logs -f -n jarvis-system deploy/jarvis-inference
-
-# Logs de l'interface Open WebUI
-kubectl logs -f -n jarvis-system deploy/jarvis-webui
-
-# Logs du serveur MCP de recherche
-kubectl logs -f -n jarvis-system deploy/jarvis-mcp-search
-```
-
-### 5.4. Procédure de Redémarrage d'un Service
-Grâce aux PVC persistants, redémarrer un composant ne supprime aucune donnée ni aucun modèle :
-```bash
-# Redémarrer Open WebUI
-kubectl rollout restart deployment/jarvis-webui -n jarvis-system
-
-# Redémarrer le serveur MCP
-kubectl rollout restart deployment/jarvis-mcp-search -n jarvis-system
-
-# Redémarrer le moteur d'inférence
-kubectl rollout restart deployment/jarvis-inference -n jarvis-system
-```
-
-### 6.5. Modifier la Configuration via GitOps (La Règle d'Or)
-Pour modifier une variable, une limite de mémoire ou une route :
-1. Modifiez les fichiers YAML correspondants dans `k8s/base/` ou `k8s/overlays/production/`.
-2. Validez la syntaxe localement :
+Pour toute modification pérenne (variables d'environnement, configuration des modèles, routage) :
+1. Modifiez les fichiers YAML dans le dépôt Git local (`k8s/`).
+2. Poussez sur la branche principale :
    ```bash
-   kubectl kustomize k8s/overlays/production
-   ```
-3. Committez et poussez sur GitHub :
-   ```bash
-   git commit -am "chore(config): ajuster la mémoire de WebUI"
+   git commit -am "feat: description du changement"
    git push origin main
    ```
-4. ArgoCD détecte automatiquement le commit et applique la modification sur le cluster sans aucune coupure de service.
+3. ArgoCD synchronise automatiquement votre cluster en quelques secondes !
 
 ---
 
-## 6. Résolution des Incidents Fréquents (Troubleshooting)
+## ❓ 9. Résolution des Problèmes Fréquents (FAQ / Dépannage)
 
-### Q1. La page `http://jarvis.local` ne s'ouvre pas ("Site inaccessible").
-* **Cause 1** : L'entrée DNS n'est pas présente dans votre fichier `hosts`.
-  * *Solution* : Vérifiez que `192.168.1.160 jarvis.local` est bien enregistré dans votre fichier `hosts` (voir [Section 1.2](#12-configuration-du-fichier-hosts-sur-vos-postes-clients-lan)).
-* **Cause 2** : Testez directement la réponse de l'Ingress depuis un terminal :
-  ```bash
-  curl.exe -I -H "Host: jarvis.local" http://192.168.1.160/
-  ```
-  Si vous obtenez `HTTP/1.1 200 OK`, le cluster fonctionne parfaitement : le souci vient de la résolution locale du navigateur (vider le cache DNS ou tester en navigation privée).
+### ❓ « Le site http://jarvis.local ne s'ouvre pas »
+* **Solution rapide** : Utilisez l'adresse IP directe : **[`http://192.168.1.160:30080`](http://192.168.1.160:30080)**.
+* **Pour réparer le nom d'hôte** : Vérifiez que la ligne `192.168.1.160 jarvis.local` est bien présente dans votre fichier `hosts` (voir [Section 2.2](#-2-points-daccès--configuration-réseau-lan)).
 
 ---
 
-### Q2. La réponse du chat s'arrête brusquement ou affiche une erreur de délai dépassé (Timeout).
-* **Cause** : Le prompt est très volumineux et dépasse le timeout standard du reverse proxy.
-* *Solution* : Vérifiez dans `k8s/base/ingress/ingress.yaml` que les annotations de streaming Traefik sont bien actives :
-  ```yaml
-  traefik.ingress.kubernetes.io/router.entrypoints: web,websecure
-  ```
+### ❓ « Mon micro ne fonctionne pas / Erreur de périphérique multimédia »
+* **Cause** : Votre navigateur bloque le micro car le site est en `http://`.
+* **Solution** : Activez le flag Chrome ou Edge `unsafely-treat-insecure-origin-as-secure` en ajoutant `http://192.168.1.160:30080` (procédure détaillée dans la [Section 4.2](#️-4-mode-vocal-voice-to-voice-whisper--kokoro-tts-français)).
 
 ---
 
-### Q3. L'inférence est anormalement lente (quelques tokens par minute).
-* **Cause** : Le modèle s'exécute sur le CPU au lieu du GPU.
-* *Solution* :
-  1. Vérifiez que la RTX 2070 SUPER est bien détectée :
-     ```bash
-     kubectl exec -n jarvis-system deploy/jarvis-inference -- nvidia-smi
-     ```
-  2. Si le modèle dépasse 8 Go de VRAM (ex: modèle 26B/70B non quantifié), les couches sont déversées en RAM système, ce qui ralentit l'inférence. Basculez sur `gemma2:9b` qui s'exécute à 100% en VRAM.
+### ❓ « Jarvis répond avec un fort accent anglais ou une mauvaise voix »
+* **Cause** : Le réglage Audio a basculé par inadvertance sur le moteur client *Kokoro.js*.
+* **Solution** : Allez dans **Paramètres > Audio**, sélectionnez **Par défaut** pour le moteur TTS et saisissez la voix **`ff_siwis`**.
 
 ---
 
-### Q4. Un pod affiche le statut `Pending`.
-* **Cause** : Les contraintes de ressources (GPU ou StorageClass) ne peuvent pas être satisfaites.
-* *Solution* :
-  ```bash
-  kubectl describe pod <nom-du-pod> -n jarvis-system
-  ```
-  Vérifiez la section `Events:` en bas de la commande pour identifier si le problème provient du stockage ou du GPU.
+### ❓ « Le modèle répond lentement »
+* **Cause** : Un modèle trop grand par rapport aux 8 Go de VRAM a été sélectionné, ce qui déverse des couches de calcul sur la mémoire RAM du CPU.
+* **Solution** : Privilégiez les modèles quantifiés adaptés aux 8 Go de VRAM comme **`jarvis:latest`**, **`gemma2:9b`** ou **`llama3.1:8b`**, qui tournent à 100% dans la mémoire ultra-rapide de la carte graphique.
 
 ---
 
-## 7. Voice-to-Voice, Persona J.A.R.V.I.S. & Second Cerveau (Phases 5 & 6)
-
-### 7.1. Le Modèle & Persona J.A.R.V.I.S. (`jarvis:latest`)
-* **Définition** : Le modèle `jarvis:latest` est automatiquement instancié au démarrage du conteneur Ollama via le `ConfigMap` [configmap-modelfile.yaml](file:///d:/devia/IAlocal/argocd-IA-local/k8s/base/inference-engine/configmap-modelfile.yaml).
-* **Comportement** : Courtoisie britannique, appellation « Monsieur », synthèse technique chirurgicale et diagnostic proactif de l'infrastructure.
-* **Sélection** : Par défaut dans Open WebUI sous le nom `jarvis:latest`.
-
-### 7.2. Pipeline Vocal Voice-to-Voice (Faster-Whisper & Kokoro TTS)
-Open WebUI est préconfiguré pour communiquer directement avec les services vocaux locaux :
-* **STT (Speech-to-Text)** : `http://jarvis-voice-stt.jarvis-system.svc.cluster.local:8000/v1` (moteur Faster-Whisper, transcription < 200 ms).
-* **TTS (Text-to-Speech)** : `http://jarvis-voice-tts.jarvis-system.svc.cluster.local:8880/v1` (moteur Kokoro-82M avec voix française officielle `ff_siwis`, intonation naturelle et diction fluide en langue française).
-* **Configuration de la Voix Française dans Open WebUI** :
-  1. Cliquez sur votre profil / **Paramètres (roue crantée)** > onglet **Audio**.
-  2. Dans la section **Synthèse vocale (Text-to-Speech / TTS)** :
-     - **Moteur de synthèse vocale (TTS Engine)** : Sélectionnez **Par défaut** (*Default*) ou laissez le champ vide.
-       > [!WARNING]
-       > **Ne pas sélectionner « Kokoro.js » dans les réglages utilisateur :**
-       > L'option *Kokoro.js* exécute un mini-moteur WebAssembly directement dans votre navigateur client qui ne contient que 28 voix anglaises prédéfinies. Si vous saisissez `ff_siwis` en ayant sélectionné *Kokoro.js*, le navigateur déclenchera l'erreur : `Error: Voice "ff_siwis" not found. Should be one of: af_heart, af_alloy...`.
-       > En choisissant **Par défaut**, la génération audio est déléguée au pod Kubernetes `jarvis-voice-tts`, qui dispose du modèle Kokoro complet avec la voix française native `ff_siwis`.
-     - **Voix (Voice)** : Saisissez ou vérifiez **`ff_siwis`**.
-  3. Cliquez sur **Enregistrer** (Save).
-* **Utilisation dans Open WebUI** :
-  1. Cliquez sur l'icône de **microphone** dans la barre de saisie pour dicter votre requête à la voix.
-  2. Activez l'option **Lecture audio automatique** (Auto-read / Read aloud) ou cliquez sur le bouton de lecture (haut-parleur) sous n'importe quel message pour entendre J.A.R.V.I.S. s'exprimer en français.
-
-> [!IMPORTANT]
-> **Erreur « Accès au microphone refusé / Accès aux appareils multimédias refusé » :**
-> Les navigateurs modernes (Chrome, Edge, Firefox, Brave) interdisent par défaut l'accès au microphone sur les connexions non chiffrées en pur `http://` (politique de sécurité *Secure Context* du W3C).
-> Pour activer le microphone, deux solutions au choix :
-> 1. **Accéder en HTTPS (Recommandé)** : Connectez-vous à `https://jarvis.local/` (au lieu de `http://`). Acceptez l'avertissement de sécurité TLS auto-signé une première fois. Le navigateur affichera alors immédiatement le pop-up d'autorisation du microphone.
-> 2. **Autoriser l'origine HTTP dans le navigateur** :
->    - Dans Chrome : ouvrez `chrome://flags/#unsafely-treat-insecure-origin-as-secure`
->    - Dans Edge : ouvrez `edge://flags/#unsafely-treat-insecure-origin-as-secure`
->    - Activez l'option (*Enabled*) et renseignez : `http://jarvis.local, http://192.168.1.160:30080`
->    - Cliquez sur **Relaunch**. Le micro fonctionnera immédiatement en HTTP.
-
-### 7.3. Second Cerveau & Base Vectorielle Qdrant
-* **Base Vectorielle** : Accessible sur le cluster à `http://jarvis-qdrant.jarvis-system.svc.cluster.local:6333` ou via Ingress `http://qdrant.local`.
-* **Ingestion Continue (`jarvis-ingestor`)** :
-  * Déposez vos notes Markdown (Obsidian Vault, documentation de projets) dans le volume persistant `jarvis-notes-pvc` monté sur `/data/notes`.
-  * Le worker scanne les fichiers, calcule leurs embeddings via `nomic-embed-text` et les injecte dans la collection `jarvis_second_brain`.
-* **Briefing Matinal J.A.R.V.I.S. (`jarvis-morning-digest`)** :
-  * Tâche planifiée quotidienne (CronJob) à **07h30**.
-  * Analyse l'état des services, synthétise les priorités du jour et génère un compte-rendu dans `/data/notes/Daily-Briefings/Briefing-YYYY-MM-DD.md`.
-  * Peut être couplé à un Webhook Discord, Telegram ou ntfy via la variable `WEBHOOK_URL`.
-
+*Documentation mise à jour le 3 octobre 2026 pour la plateforme Jarvis AI sur nœud `linux2` (RTX 3070 8 Go / `/stockage`).*
