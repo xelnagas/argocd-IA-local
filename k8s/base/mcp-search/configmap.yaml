@@ -74,6 +74,93 @@ data:
         except Exception as e:
             return f"Erreur lors de la récupération de la page '{url}' : {str(e)}"
 
+    @mcp.tool(
+        name="generate_image",
+        description="Génère une image ou photographie réaliste en haute résolution via le Studio Visuel GPU local. Utilise cet outil dès que l'utilisateur demande d'imaginer, dessiner, générer ou créer une photo ou image."
+    )
+    def generate_image(prompt: str, aspect_ratio: str = "1:1") -> str:
+        """Génère une image photoréaliste via le Studio Visuel GPU local.
+        
+        Args:
+            prompt: Description photographique détaillée en anglais (cadrage, lumière, sujet, style 85mm raw photo).
+            aspect_ratio: Ratio d'aspect de l'image ("1:1", "16:9", "9:16", "4:3", "3:4").
+        """
+        try:
+            req_data = json.dumps({"prompt": prompt, "aspect_ratio": aspect_ratio}).encode("utf-8")
+            req = urllib.request.Request(
+                "http://jarvis-image-gen.jarvis-system.svc.cluster.local:8000/v1/images/generations",
+                data=req_data,
+                headers={"Content-Type": "application/json"}
+            )
+            with urllib.request.urlopen(req, timeout=120) as resp:
+                res = json.loads(resp.read().decode("utf-8"))
+                item = res["data"][0]
+                url = item["url"]
+                img_id = item.get("image_id", "")
+                dur = item.get("duration_seconds", 0)
+                return f"![Photo générée]({url})\n\n*(Image ID: `{img_id}` générée en {dur}s - Vous pouvez demander une retouche ou un agrandissement 4K)*"
+        except Exception as e:
+            return f"Erreur lors de la génération de l'image : {str(e)}"
+
+    @mcp.tool(
+        name="edit_image",
+        description="Modifie ou retouche une image précédemment générée en appliquant de nouvelles consignes (Image-to-Image / Inpainting). Utilise cet outil lorsque l'utilisateur demande d'ajuster ou modifier l'image."
+    )
+    def edit_image(prompt: str, parent_image_id: str = "", denoising_strength: float = 0.45) -> str:
+        """Modifie une image existante avec de nouvelles consignes.
+        
+        Args:
+            prompt: Modifications souhaitées décrites en anglais.
+            parent_image_id: Nom du fichier ou identifiant de l'image parent (ex: jarvis_20261003_120401_abc123.png).
+            denoising_strength: Force de modification entre 0.1 (subtil) et 0.8 (majeur). Défaut: 0.45.
+        """
+        try:
+            payload = {"prompt": prompt, "denoising_strength": denoising_strength}
+            if parent_image_id:
+                payload["parent_image_id"] = parent_image_id
+            req_data = json.dumps(payload).encode("utf-8")
+            req = urllib.request.Request(
+                "http://jarvis-image-gen.jarvis-system.svc.cluster.local:8000/v1/images/edits",
+                data=req_data,
+                headers={"Content-Type": "application/json"}
+            )
+            with urllib.request.urlopen(req, timeout=120) as resp:
+                res = json.loads(resp.read().decode("utf-8"))
+                item = res["data"][0]
+                url = item["url"]
+                img_id = item.get("image_id", "")
+                dur = item.get("duration_seconds", 0)
+                return f"![Photo retouchée]({url})\n\n*(Image ID: `{img_id}` retouchée en {dur}s)*"
+        except Exception as e:
+            return f"Erreur lors de la retouche de l'image : {str(e)}"
+
+    @mcp.tool(
+        name="upscale_image",
+        description="Agrandit une image en résolution Ultra-HD 4K avec super-résolution et netteté améliorée."
+    )
+    def upscale_image(image_id: str, scale: int = 2) -> str:
+        """Agrandit une image en haute définition.
+        
+        Args:
+            image_id: Identifiant de l'image (ex: jarvis_20261003_120401_abc123.png).
+            scale: Facteur d'agrandissement (2 ou 4). Défaut: 2.
+        """
+        try:
+            req_data = json.dumps({"image_id": image_id, "scale": scale}).encode("utf-8")
+            req = urllib.request.Request(
+                "http://jarvis-image-gen.jarvis-system.svc.cluster.local:8000/v1/images/upscale",
+                data=req_data,
+                headers={"Content-Type": "application/json"}
+            )
+            with urllib.request.urlopen(req, timeout=60) as resp:
+                res = json.loads(resp.read().decode("utf-8"))
+                item = res["data"][0]
+                url = item["url"]
+                res_str = item.get("resolution", "")
+                return f"![Photo HD 4K]({url})\n\n*(Image agrandie en résolution {res_str})*"
+        except Exception as e:
+            return f"Erreur lors de l'agrandissement de l'image : {str(e)}"
+
     if __name__ == "__main__":
         app = mcp.streamable_http_app()
         uvicorn.run(app, host="0.0.0.0", port=8000)

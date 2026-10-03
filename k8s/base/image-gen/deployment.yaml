@@ -1,0 +1,112 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: jarvis-image-gen
+  namespace: jarvis-system
+  labels:
+    app.kubernetes.io/name: jarvis-image-gen
+    app.kubernetes.io/part-of: jarvis
+    app.kubernetes.io/component: visual-studio
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: jarvis-image-gen
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: jarvis-image-gen
+        app.kubernetes.io/part-of: jarvis
+        app.kubernetes.io/component: visual-studio
+    spec:
+      runtimeClassName: nvidia
+      affinity:
+        nodeAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              preference:
+                matchExpressions:
+                  - key: kubernetes.io/hostname
+                    operator: In
+                    values: ["mini"]
+                  - key: gpu-model
+                    operator: In
+                    values: ["rtx2070super"]
+            - weight: 50
+              preference:
+                matchExpressions:
+                  - key: accelerator
+                    operator: In
+                    values: ["nvidia-gpu"]
+      tolerations:
+        - key: "node.kubernetes.io/not-ready"
+          operator: "Exists"
+          effect: "NoExecute"
+          tolerationSeconds: 30
+        - key: "node.kubernetes.io/unreachable"
+          operator: "Exists"
+          effect: "NoExecute"
+          tolerationSeconds: 30
+      containers:
+        - name: image-generator
+          image: 192.168.1.160:5000/jarvis-image-gen:latest
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: MODEL_ID
+              value: "SG161222/RealVisXL_V4.0_Lightning"
+            - name: DIFFUSERS_CACHE_DIR
+              value: "/app/cache/diffusers"
+            - name: STORAGE_DIR
+              value: "/app/storage/generated-images"
+            - name: PUBLIC_IMAGE_URL_PREFIX
+              value: "http://jarvis.local/images"
+            - name: ENABLE_CPU_OFFLOAD
+              value: "auto"
+            - name: DEFAULT_STEPS
+              value: "6"
+            - name: DEFAULT_GUIDANCE
+              value: "2.0"
+          ports:
+            - name: http
+              containerPort: 8000
+          resources:
+            requests:
+              cpu: "1000m"
+              memory: 4Gi
+            limits:
+              cpu: "6"
+              memory: 16Gi
+              nvidia.com/gpu: "1"
+          volumeMounts:
+            - name: image-storage
+              mountPath: /app/storage/generated-images
+            - name: diffusers-cache
+              mountPath: /app/cache/diffusers
+          startupProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            failureThreshold: 60
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 30
+            periodSeconds: 15
+      volumes:
+        - name: image-storage
+          persistentVolumeClaim:
+            claimName: jarvis-image-storage-pvc
+        - name: diffusers-cache
+          persistentVolumeClaim:
+            claimName: jarvis-diffusers-cache-pvc

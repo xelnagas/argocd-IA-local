@@ -1,0 +1,32 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: jarvis-image-ingress
+  namespace: jarvis-system
+  labels:
+    app.kubernetes.io/name: jarvis-image-gen
+    app.kubernetes.io/part-of: jarvis
+  annotations:
+    traefik.ingress.kubernetes.io/router.entrypoints: web,websecure
+spec:
+  rules:
+    - host: images.local
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: jarvis-image-gen
+                port:
+                  number: 8000
+    - host: jarvis.local
+      http:
+        paths:
+          - path: /images
+            pathType: Prefix
+            backend:
+              service:
+                name: jarvis-image-gen
+                port:
+                  number: 8000

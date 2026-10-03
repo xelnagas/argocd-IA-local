@@ -1,0 +1,18 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: jarvis-image-gen
+  namespace: jarvis-system
+  labels:
+    app.kubernetes.io/name: jarvis-image-gen
+    app.kubernetes.io/part-of: jarvis
+    app.kubernetes.io/component: visual-studio
+spec:
+  type: NodePort
+  ports:
+    - name: http
+      port: 8000
+      targetPort: 8000
+      nodePort: 30850
+  selector:
+    app.kubernetes.io/name: jarvis-image-gen

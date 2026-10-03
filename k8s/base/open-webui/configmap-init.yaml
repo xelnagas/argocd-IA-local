@@ -35,7 +35,14 @@ data:
             ('audio.stt.engine', json.dumps('openai')),
             ('audio.stt.model', json.dumps('Systran/faster-whisper-medium')),
             ('audio.stt.openai.api_base_url', json.dumps('http://jarvis-voice-stt.jarvis-system.svc.cluster.local:8000/v1')),
-            ('audio.stt.openai.api_key', json.dumps('jarvis-audio-key'))
+            ('audio.stt.openai.api_key', json.dumps('jarvis-audio-key')),
+            ('image.enabled', json.dumps(True)),
+            ('image.engine', json.dumps('openai')),
+            ('image.openai.api_base_url', json.dumps('http://jarvis-image-gen.jarvis-system.svc.cluster.local:8000/v1')),
+            ('image.openai.api_key', json.dumps('jarvis-image-key')),
+            ('image.model', json.dumps('SG161222/RealVisXL_V4.0_Lightning')),
+            ('image.size', json.dumps('1024x1024')),
+            ('image.steps', json.dumps(6))
         ]
         for k, v in configs:
             c.execute('INSERT INTO config ("key", value, updated_at) VALUES (?, ?, ?) ON CONFLICT("key") DO UPDATE SET value=excluded.value, updated_at=excluded.updated_at', (k, v, t))

@@ -72,6 +72,20 @@ spec:
               value: "http://jarvis-inference.jarvis-system.svc.cluster.local:11434"
             - name: TOOL_SERVER_CONNECTIONS
               value: '[{"url":"http://jarvis-mcp-search.jarvis-system.svc.cluster.local:8000/mcp","type":"mcp","auth_type":"none","config":{"enable":true},"info":{"id":"jarvis-mcp-search","name":"MCP Web Search","description":"Serveur MCP de recherche internet DuckDuckGo et extraction web"}}]'
+            - name: ENABLE_IMAGE_GENERATION
+              value: "True"
+            - name: IMAGE_GENERATION_ENGINE
+              value: "openai"
+            - name: IMAGE_GENERATION_OPENAI_API_BASE_URL
+              value: "http://jarvis-image-gen.jarvis-system.svc.cluster.local:8000/v1"
+            - name: IMAGE_GENERATION_OPENAI_API_KEY
+              value: "jarvis-image-key"
+            - name: IMAGE_GENERATION_MODEL
+              value: "SG161222/RealVisXL_V4.0_Lightning"
+            - name: IMAGE_SIZE
+              value: "1024x1024"
+            - name: IMAGE_STEPS
+              value: "6"
           ports:
             - name: http
               containerPort: 8080
