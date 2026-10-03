@@ -1,11 +1,12 @@
 # 🎨 Projet J.A.R.V.I.S. Studio Visuel : Génération & Retouche d'Images Photoréalistes par Commande Vocale
 
-> **Document de Cadrage & Plan d'Action Technique (Architecture Bi-GPU Distribuée)**  
+> **Document de Cadrage & Plan d'Action Technique (Architecture Bi-GPU Élastique & Distribuée)**  
 > *Auteur : Antigravity (Google DeepMind) & Julien*  
-> *Date de création : 3 octobre 2026 (Mise à jour Bi-GPU)*  
-> *Cible d'infrastructure : Cluster Kubernetes Bare-metal Multi-Nœuds :*
+> *Date de création : 3 octobre 2026 (Mise à jour Élasticité Bi-GPU)*  
+> *Cible d'infrastructure : Cluster Kubernetes Bare-metal Multi-Nœuds avec Migration Dynamique :*
 > - **Nœud 1 (`linux2` - 192.168.1.160)** : GPU NVIDIA GeForce RTX 3070 8 Go, Stockage centralisé `/stockage` (2 To libres), Control-Plane & Cœur Cognitif (LLM, Voice STT/TTS, Open WebUI, Qdrant).
-> - **Nœud 2 (`mini` - 192.168.1.99)** : Worker GPU dédié NVIDIA GeForce RTX 2070 SUPER 8 Go (Studio Graphique, Moteur de Diffusion SDXL, Retouche & Upscaling 4K).
+> - **Nœud 2 (`mini` - 192.168.1.99)** : Worker GPU NVIDIA GeForce RTX 2070 SUPER 8 Go (Studio Graphique, Moteur de Diffusion SDXL, Retouche & Upscaling 4K).
+> - **Capacité d'Élasticité** : Les pods GPU migrent dynamiquement et automatiquement entre `mini` et `linux2` selon la disponibilité, la charge et l'état allumé/éteint des machines.
 > - **Orchestration GitOps** : ArgoCD & Kustomize.
 
 ---
@@ -21,8 +22,9 @@ L'utilisateur s'adresse à **J.A.R.V.I.S.** à la voix via le microphone d'Open 
    - Whisper STT transcrit la voix instantanément en français (< 200 ms).
    - Le persona **J.A.R.V.I.S.** détecte automatiquement l'intention de génération visuelle.
    - Il amplifie et traduit le prompt en anglais cinématographique pour le moteur de diffusion (cadrage, focale 85mm f/1.4, éclairage volumétrique, textures 8k photoréalistes).
-3. **Délégation & Rendu Graphique Ultra-Rapide (sur `mini` - RTX 2070 SUPER)** :  
-   - Le microservice local de diffusion calcule l'image en **~3 à 5 secondes** sur la **RTX 2070 SUPER** sans impacter d'un seul mégaoctet la mémoire du LLM sur `linux2`.
+3. **Délégation & Rendu Graphique Ultra-Rapide (sur `mini` - RTX 2070 SUPER ou repli `linux2`)** :  
+   - Le microservice local de diffusion calcule l'image en **~3 à 5 secondes** sur la **RTX 2070 SUPER** sans impacter la mémoire du LLM sur `linux2`.
+   - Si `mini` est éteint, le pod est automatiquement hébergé sur `linux2` (RTX 3070).
 4. **Restitution Multimodale Immédiate** :  
    - L'image haute définition apparaît directement dans le fil de discussion Open WebUI.
    - J.A.R.V.I.S. confirme vocalement via Kokoro TTS (`ff_siwis`) :  
@@ -30,13 +32,13 @@ L'utilisateur s'adresse à **J.A.R.V.I.S.** à la voix via le microphone d'Open 
 5. **Retouche Itérative & Upscaling par Prompt (Image-to-Image / Inpainting)** :  
    - L'utilisateur peut réagir à la voix ou au clavier :  
      *« Ajoute un fauteuil club en cuir marron près de la baie vitrée et agrandis l'image en haute résolution. »*
-   - J.A.R.V.I.S. conserve l'état contextuel, transmet l'image de référence au nœud `mini` pour modification (*Image-to-Image / Edits*) et upscaling 4K, puis affiche la nouvelle variante.
+   - J.A.R.V.I.S. conserve l'état contextuel, transmet l'image de référence au nœud actif pour modification (*Image-to-Image / Edits*) et upscaling 4K, puis affiche la nouvelle variante.
 
 ---
 
 ## 🏗️ 2. Architecture Bi-GPU & Flux de Données Multi-Nœuds
 
-L'architecture s'appuie sur la complémentarité des deux cartes graphiques du cluster :
+L'architecture s'appuie sur la complémentarité des deux cartes graphiques du cluster avec flexibilité de placement :
 
 ```mermaid
 sequenceDiagram
@@ -46,7 +48,7 @@ sequenceDiagram
         participant UI as 🖥️ Open WebUI
         participant STT as 🎙️ Faster-Whisper
         participant LLM as ⚡ J.A.R.V.I.S. (Ollama)
-        participant Storage as 💾 /stockage (2 To)
+        participant Storage as 💾 /stockage (2 To NFS/Local)
         participant TTS as 🔊 Kokoro TTS (ff_siwis)
     end
     box rgb(15, 23, 42) Nœud mini (RTX 2070 SUPER - 192.168.1.99)
@@ -60,7 +62,8 @@ sequenceDiagram
     UI->>LLM: Prompt utilisateur transcrit
     Note over LLM: Détection automatique d'intention Visuelle<br/>Traduction & enrichissement photographique (85mm, raw photo)
     LLM->>Diffuser: Invoque tool "generate_image(prompt, aspect_ratio)"
-    Diffuser->>Storage: Écriture PNG 1024x1024 (via montage réseau/NFS)
+    Note over Diffuser: Exécuté sur mini (RTX 2070 S)<br/>ou migré sur linux2 si mini est indisponible
+    Diffuser->>Storage: Écriture PNG 1024x1024 (via stockage partagé /stockage)
     Diffuser-->>LLM: URL de l'image locale (/images/photo_abc123.png)
     LLM-->>UI: Message Markdown avec ![Image](url) + Réponse courtoise
     UI->>TTS: Synthèse vocale de la réponse
@@ -80,26 +83,29 @@ sequenceDiagram
 
 ---
 
-## ⚡ 3. Répartition des Rôles & Stratégie Bi-GPU
-
-Grâce à la présence des deux cartes graphiques sur le réseau local, nous éliminons totalement le problème de contention mémoire (VRAM) :
+## ⚡ 3. Répartition des Rôles & Stratégie Bi-GPU Élastique
 
 ```
 ┌────────────────────────────────────────────────────────┐   ┌────────────────────────────────────────────────────────┐
 │             NŒUD 1 : linux2 (192.168.1.160)            │   │               NŒUD 2 : mini (192.168.1.99)             │
 │        GPU : NVIDIA GeForce RTX 3070 (8 Go VRAM)       │   │     GPU : NVIDIA GeForce RTX 2070 SUPER (8 Go VRAM)    │
 ├────────────────────────────────────────────────────────┤   ├────────────────────────────────────────────────────────┤
-│  ⚡ CŒUR COGNITIF & INTERACTION TEMPS RÉEL              │   │  🎨 STUDIO GRAPHIQUE & TRAITEMENTS LOURDS              │
+│  ⚡ CŒUR COGNITIF & REPLI DE SECOURS                   │   │  🎨 STUDIO GRAPHIQUE DÉDIÉ (Cible Préférentielle)      │
 │                                                        │   │                                                        │
 │  • Ollama LLM (jarvis:latest, gemma2:9b, llama3.1)    │   │  • Microservice jarvis-image-gen (SDXL Lightning)      │
-│    -> Réservé en VRAM (~5.4 Go) sans aucun déchargement│   │    -> 100% de la VRAM dédiée à la diffusion (~5.2 Go)  │
-│  • Faster-Whisper (STT vocal < 200 ms)                 │   │  • Retouche Image-to-Image & Inpainting                │
-│  • Kokoro TTS (Synthèse vocale française ff_siwis)     │   │  • Moteur d'Upscaling 4K & Face Restoration            │
-│  • Interface Open WebUI                                │   │    (Real-ESRGAN / CodeFormer)                          │
-│  • Base Vectorielle Qdrant (Second Cerveau)            │   │  • Génération par lots (Batch de 4 variantes)          │
-│  • Stockage persistant centralisé (/stockage 2 To)     │   │                                                        │
+│    -> 100% VRAM réservée au raisonnement (~5.4 Go)    │   │    -> 100% VRAM dédiée à la génération (~5.2 Go)       │
+│  • Faster-Whisper (STT vocal < 200 ms)                 │   │  • Moteur de retouche Image-to-Image / Inpainting     │
+│  • Kokoro TTS (Synthèse vocale française ff_siwis)     │   │  • Super-Résolution & Upscaling 4K (Real-ESRGAN)       │
+│  • Interface Open WebUI & Qdrant Second Cerveau        │   │  • Génération de 4 variantes en parallèle (Batch)      │
+│  • Stockage persistant NFS centralisé (/stockage 2 To) │   │                                                        │
+│  ----------------------------------------------------  │   │  ----------------------------------------------------  │
+│  🔄 HÔTE DE SECOURS (Si mini est éteint/NotReady) :    │   │  🔄 HÔTE DE REPLI (Si linux2 en maintenance K8s) :    │
+│  • Héberge temporairement jarvis-image-gen avec        │   │  • Capable d'exécuter l'inférence LLM Ollama          │
+│    optimisation CPU-Offload dynamique.                 │   │    grâce aux volumes partagés sur /stockage.           │
 └────────────────────────────────────────────────────────┘   └────────────────────────────────────────────────────────┘
 ```
+
+---
 
 ### 3.1. Les Actions Concrètes Déléguées au Nœud `mini` (RTX 2070 SUPER)
 
@@ -122,44 +128,93 @@ Grâce à la présence des deux cartes graphiques sur le réseau local, nous él
 
 ---
 
-### 3.2. Stratégie d'Orchestration Kubernetes & Failover Automatique
+### 3.2. Élasticité & Migration Dynamique des Pods GPU (Inter-Nodes Failover & Rebalancing)
 
-Pour garantir une robustesse maximale (par exemple si le nœud `mini` est éteint pour économiser de l'énergie), Kubernetes utilise une règle de **Scheduling Préférentiel (Affinity & Failover)** :
+La plateforme met en œuvre un modèle de **haute disponibilité élastique** : les pods GPU ne sont jamais enchaînés à une machine physique fixe.
 
-```yaml
-affinity:
-  nodeAffinity:
-    preferredDuringSchedulingIgnoredDuringExecution:
-      # Priorité 1 : Exécuter sur le worker mini (RTX 2070 SUPER)
-      - weight: 100
-        preference:
-          matchExpressions:
-            - key: kubernetes.io/hostname
-              operator: In
-              values: ["mini"]
-            - key: gpu-model
-              operator: In
-              values: ["rtx2070super"]
-      # Priorité 2 (Failover) : Si mini est indisponible, bascule transparente sur linux2
-      - weight: 50
-        preference:
-          matchExpressions:
-            - key: accelerator
-              operator: In
-              values: ["nvidia-gpu"]
+```mermaid
+flowchart TD
+    subgraph K8S_SCHEDULER["Orchestrateur Kubernetes K3s"]
+        Detect[Surveillance des Nœuds GPU : linux2 & mini]
+    end
+
+    subgraph ETAT_NOMINAL["1. Mode Nominal (mini & linux2 en ligne)"]
+        N1[linux2 : RTX 3070] -->|Exécute| LLM[Pod Inférence LLM & Voix]
+        N2[mini : RTX 2070 S] -->|Exécute| IMG[Pod jarvis-image-gen SDXL]
+    end
+
+    subgraph EVENT_MINI_DOWN["2. Extinction / Panne de mini"]
+        miniOff[Nœud mini passe NotReady / Unreachable] --> Evict[Éviction rapide sous 30s]
+        Evict --> MigrateToLinux2[Migration automatique de jarvis-image-gen vers linux2]
+        MigrateToLinux2 --> SharedVRAM[linux2 héberge LLM + Image avec CPU-Offload]
+    end
+
+    subgraph EVENT_MINI_UP["3. Rallumage de mini (Wake-on-LAN / Boot)"]
+        miniOn[Nœud mini redevient Ready] --> Rebalance[Reprogrammation prioritaire du studio d'image sur mini]
+        Rebalance --> IsolateVRAM[Retour à l'isolation 100% de la VRAM]
+    end
+
+    Detect --> ETAT_NOMINAL
+    ETAT_NOMINAL -.->|Extinction mini| EVENT_MINI_DOWN
+    EVENT_MINI_DOWN -.->|Rallumage mini| EVENT_MINI_UP
 ```
 
-* **Comportement nominal (`mini` en ligne)** : Le studio d'image tourne exclusivement sur la RTX 2070 SUPER.
-* **Comportement secours (`mini` hors ligne)** : Le pod bascule automatiquement sur la RTX 3070 de `linux2` avec l'optimisation CPU-offload active.
+#### Les 4 Piliers Techniques de la Migration Dynamique :
+
+1. **Ciblage Générique du Ressource Pool GPU (`accelerator: nvidia-gpu`)** :
+   Les deux nœuds possèdent le label unifié `accelerator=nvidia-gpu` et exposent la ressource allocatable `nvidia.com/gpu: 1`. N'importe quel pod GPU peut donc atterrir sur l'une ou l'autre des deux machines.
+
+2. **Scheduling Préférentiel Pondéré (NodeAffinity)** :
+   Le pod `jarvis-image-gen` privilégie le worker `mini` pour décharger le master, tout en conservant `linux2` comme fallback immédiat :
+   ```yaml
+   affinity:
+     nodeAffinity:
+       preferredDuringSchedulingIgnoredDuringExecution:
+         # Poids 100 : Exécuter sur mini en priorité nominale
+         - weight: 100
+           preference:
+             matchExpressions:
+               - key: kubernetes.io/hostname
+                 operator: In
+                 values: ["mini"]
+               - key: gpu-model
+                 operator: In
+                 values: ["rtx2070super"]
+         # Poids 50 : Fallback transparent sur linux2 si mini est absent
+         - weight: 50
+           preference:
+             matchExpressions:
+               - key: accelerator
+                 operator: In
+                 values: ["nvidia-gpu"]
+   ```
+
+3. **Éviction Rapide lors des Arrêts de Machine (Tolerations Réactives)** :
+   Par défaut, Kubernetes attend 300 secondes (5 minutes) avant d'évincer un pod d'un nœud déconnecté. Pour que la migration soit quasi-instantanée en cas d'extinction de `mini`, des `tolerations` à **30 secondes** sont configurées dans le déploiement :
+   ```yaml
+   tolerations:
+     - key: "node.kubernetes.io/not-ready"
+       operator: "Exists"
+       effect: "NoExecute"
+       tolerationSeconds: 30
+     - key: "node.kubernetes.io/unreachable"
+       operator: "Exists"
+       effect: "NoExecute"
+       tolerationSeconds: 30
+   ```
+
+4. **Stockage Agnostique du Nœud (NFS RWX sur `/stockage`)** :
+   Pour qu'un pod puisse migrer d'un nœud à l'autre sans avoir à retélécharger les 6 Go de modèles de diffusion ou perdre les images déjà créées, les volumes sont configurés en **ReadWriteMany (RWX)** via le stockage centralisé `/stockage` de `linux2`. Dès qu'un pod migre, il remonte instantanément les mêmes caches et fichiers en quelques millisecondes.
 
 ---
 
-### 3.3. Partage du Stockage `/stockage` entre les deux Nœuds
+### 3.3. Gestion de la Coexistence VRAM en Cas de Repli sur `linux2`
 
-Le disque de 8 To est physiquement connecté sur `linux2` (`/stockage`).  
-Pour que le conteneur sur `mini` écrive et serve les images de manière transparente :
-* **Option A (Recommandée & Standard K8s)** : Export d'un dossier NFS léger depuis `linux2` (`/stockage/system-storage/generated-images`), monté en PVC `ReadWriteMany` (RWX) sur les deux nœuds.
-* **Option B (API Gateway)** : Le microservice sur `mini` stocke temporairement les images et les téléverse via HTTP multipart vers le point de stockage centralisé d'Open WebUI sur `linux2`.
+Lorsque `mini` est éteint et que `jarvis-image-gen` migre sur `linux2` aux côtés d'Ollama :
+* **Découplage dynamique** : Le conteneur d'image active `enable_model_cpu_offload()`. Les blocs du réseau de neurones de diffusion sont temporairement placés dans les 32 Go de RAM système de `linux2` et montés dans la VRAM de la RTX 3070 uniquement lors du calcul effectif de l'image.
+* **Priorité de Service (`PriorityClass`)** :
+  - `jarvis-inference` (Ollama LLM & Voix) possède une priorité haute (`system-cluster-critical` ou Priority 1000) pour garantir la continuité du dialogue vocal.
+  - `jarvis-image-gen` s'exécute avec une priorité standard.
 
 ---
 
@@ -167,7 +222,7 @@ Pour que le conteneur sur `mini` écrive et serve les images de manière transpa
 
 ```mermaid
 gantt
-    title Feuille de Route d'Implémentation Studio Visuel J.A.R.V.I.S. (Bi-GPU)
+    title Feuille de Route d'Implémentation Studio Visuel J.A.R.V.I.S. (Bi-GPU Élastique)
     dateFormat  YYYY-MM-DD
     section Phase 1 - Architecture
     Spécifications API & Contrat Bi-Nœuds       :p1_1, 2026-10-05, 2d
@@ -175,21 +230,21 @@ gantt
     Développement jarvis-image-gen (SDXL)       :p2_1, 2026-10-07, 3d
     Module Upscaling 4K & Retouche I2I         :p2_2, after p2_1, 2d
     section Phase 3 - Kubernetes & GitOps
-    Manifests K8s (Affinité mini + Failover)   :p3_1, after p2_2, 2d
-    Partage de stockage NFS (/stockage)         :p3_2, after p3_1, 1d
+    Manifests K8s (Affinité, Failover & Tolerations) :p3_1, after p2_2, 2d
+    Partage de stockage NFS RWX (/stockage)     :p3_2, after p3_1, 1d
     section Phase 4 - Intelligence Vocale
     Tool Calling / MCP Image Generator          :p4_1, after p3_2, 2d
     Prompt Crafting Photoréaliste dans Jarvis   :p4_2, after p4_1, 1d
     section Phase 5 - Retouche Conversationnelle
     Gestion de l'historique d'images (Edits)    :p5_1, after p4_2, 2d
     section Phase 6 - Validation & UX
-    Tests E2E Vocaux & Documentation Finale     :p6_1, after p5_1, 2d
+    Tests de Migration Dynamique & Doc Finale   :p6_1, after p5_1, 2d
 ```
 
 ---
 
 ### Phase 1 : Spécifications & Contrat d'Interface Bi-Nœuds (Jour 1 - 2)
-* **Objectif** : Définir les protocoles de communication entre le cœur cognitif (`linux2`) et le studio d'image (`mini`).
+* **Objectif** : Définir les protocoles de communication entre le cœur cognitif (`linux2`) et le studio d'image (sur `mini` ou `linux2`).
 * **Livrables** :
   1. Spécification des endpoints API standardisés :
      - `POST /v1/images/generations` (Text-to-Image compatible format OpenAI).
@@ -211,22 +266,24 @@ gantt
   - Détection automatique du mode (Text-to-Image vs Image-to-Image vs Upscale).
   - Normalisation des ratios d'aspect (1:1 carré, 16:9 paysage, 9:16 portrait).
   - Negative prompts optimisés pour la photo (*bad anatomy, deformed, oversaturated, cartoon, drawing, watermark*).
+  - Support de l'auto-offload CPU si le pod est schedulé sur un GPU partagé.
 
 ---
 
-### Phase 3 : Manifests Kubernetes, Affinité Nœud `mini` & Stockage (Jour 6 - 8)
-* **Objectif** : Déployer et orchestrer le microservice sur `mini` avec repli automatique sur `linux2`.
+### Phase 3 : Manifests Kubernetes, Migration Élastique & Stockage RWX (Jour 6 - 8)
+* **Objectif** : Déployer et orchestrer le microservice avec migration dynamique entre `mini` et `linux2`.
 * **Manifests à créer dans `k8s/base/image-gen/`** :
   - `deployment.yaml` :
     - Allocation GPU : `resources.limits: { "nvidia.com/gpu": "1" }`.
     - `runtimeClassName: nvidia`.
-    - `affinity`: Ciblage préférentiel de `mini` (`gpu-model: rtx2070super`) avec failover sur `linux2`.
-  - `pvc.yaml` : Point de montage persistant partagé (NFS) pointant vers `/stockage/system-storage/generated-images`.
+    - Règles d'affinité préférentielle (`preferredDuringSchedulingIgnoredDuringExecution`).
+    - `tolerations` réactives (30s) pour bascule rapide en cas d'extinction d'un nœud.
+  - `pvc.yaml` : Volume persistant partagé (NFS RWX) rattaché à `/stockage/system-storage/generated-images` et `/stockage/system-storage/diffusers-cache`.
   - `service.yaml` : ClusterIP sur port interne `8000` + NodePort optionnel `30850`.
   - `ingress.yaml` : Route publique `http://images.local/` ou `http://jarvis.local/images/`.
 * **Intégration GitOps** :
   - Ajout dans `k8s/base/kustomization.yaml`.
-  - Synchronisation et monitoring via ArgoCD.
+  - Synchronisation et monitoring d'état de santé via ArgoCD.
 
 ---
 
@@ -252,7 +309,7 @@ gantt
 * **Workflow d'Itération** :
   1. **Détection de Continuité** :
      - Lorsque l'utilisateur dit : *« Change le ciel en coucher de soleil »*, *« Ajoute un labrador près de la porte »* ou *« Agrandis en 4K »*, Jarvis associe la commande à la dernière image.
-  2. **Inférence Image-to-Image / Upscale sur `mini`** :
+  2. **Inférence Image-to-Image / Upscale** :
      - Appel de `POST /v1/images/edits` avec l'image source et un paramètre de force de débruitage modulé (`0.30 - 0.55`).
      - Ou appel de `POST /v1/images/upscale` pour quadrupler la résolution.
   3. **Affichage Comparatif** :
@@ -264,11 +321,11 @@ gantt
 * **Objectif** : Valider l'expérience globale sous conditions réelles et enrichir la documentation utilisateur.
 * **Tests de Validation** :
   - [ ] Test vocal bout-en-bout : Commande micro sur `linux2` ➔ Génération sur `mini` ➔ Affichage WebUI ➔ Synthèse vocale.
-  - [ ] Test d'isolation VRAM : Vérifier que l'inférence image sur `mini` ne consomme aucun mégaoctet sur la RTX 3070 de `linux2`.
-  - [ ] Test de résilience & failover : Éteindre temporairement `mini` et vérifier la bascule automatique du pod sur `linux2`.
+  - [ ] **Test de Migration Dynamique & Failover** : Éteindre volontairement `mini` en cours de fonctionnement et vérifier la migration automatique du pod sur `linux2` en moins de 45 secondes sans perte de service.
+  - [ ] **Test de Rallumage & Rééquilibrage** : Rallumer `mini` et constater la reprise de charge par le worker dédié.
   - [ ] Test du cycle de retouche et d'upscaling 4K.
 * **Documentation** :
-  - Mise à jour du [manuel.md](file:///d:/devia/IAlocal/argocd-IA-local/manuel.md) avec la section décrivant le fonctionnement du Studio Visuel Bi-GPU.
+  - Mise à jour du [manuel.md](file:///d:/devia/IAlocal/argocd-IA-local/manuel.md) avec la section décrivant le fonctionnement du Studio Visuel et la migration automatique inter-nœuds.
 
 ---
 
@@ -278,8 +335,9 @@ gantt
 | :--- | :---: | :--- |
 | **Délai Total (Voix ➔ Image à l'écran)** | **< 5 secondes** | Chronométrage de bout en bout sur `mini` (RTX 2070 SUPER). |
 | **Résolution Native / Upscalée** | **1024x1024 natif / 3840x2160 (4K)** | Vérification des métadonnées PNG. |
-| **Contention VRAM** | **0 Go partagé (Isolation 100%)** | `nvidia-smi` simultané sur `linux2` et `mini`. |
-| **Disponibilité / Résilience** | **100% avec bascule failover** | Test de déconnexion du nœud `mini`. |
+| **Contention VRAM en Mode Nominal** | **0 Go partagé (Isolation 100%)** | `nvidia-smi` simultané sur `linux2` et `mini`. |
+| **Temps de Migration Automatique** | **< 45 secondes** | Éviction et redémarrage du pod en cas d'arrêt imprévu de `mini`. |
+| **Disponibilité / Résilience Globale** | **100% avec bascule failover** | Test de déconnexion du nœud `mini`. |
 
 ---
 
@@ -287,10 +345,11 @@ gantt
 
 | Risque Identifié | Gravité | Probabilité | Solution Préventive / Mitigation |
 | :--- | :---: | :---: | :--- |
-| **Nœud `mini` éteint (hors ligne)** | Moyenne | Moyenne | Règle `preferredDuringScheduling` : bascule automatique sur `linux2` si `mini` est absent. |
-| **Latence réseau inter-nœuds (transfert d'image)** | Faible | Faible | Réseau local Gigabit 1 Gbps (transfert d'un PNG de 2 Mo en ~15 ms). |
+| **Nœud `mini` éteint (mode veille / hors ligne)** | Moyenne | Moyenne | Règle `preferredDuringScheduling` + `tolerations` à 30s : bascule automatique transparente sur `linux2`. |
+| **Temps de démarrage lors d'une migration** | Faible | Moyenne | Montage du cache des modèles en NFS RWX sur `/stockage` : zéro re-téléchargement lors du changement de nœud. |
+| **Saturation VRAM lors d'un repli sur `linux2`** | Élevée | Faible | Activation automatique de `enable_model_cpu_offload()` dans Diffusers pour préserver la VRAM d'Ollama. |
 | **Synchronisation des retouches conversationnelles** | Faible | Moyenne | Gestion d'un identifiant parent (`parent_image_id`) transmis dans le contexte du chat. |
 
 ---
 
-*Ce document constitue le plan de référence pour le déploiement du Studio Visuel J.A.R.V.I.S. en architecture Bi-GPU distribuée.*
+*Ce document constitue le plan de référence pour le déploiement du Studio Visuel J.A.R.V.I.S. en architecture Bi-GPU élastique et résiliente.*
