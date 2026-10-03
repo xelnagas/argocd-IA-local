@@ -1,38 +1,59 @@
 # 🎨 Projet J.A.R.V.I.S. Studio Visuel : Génération & Retouche d'Images Photoréalistes par Commande Vocale
 
-> **Document de Cadrage & Plan d'Action Technique (Architecture Bi-GPU Élastique & Distribuée)**  
+> **Document de Cadrage & Plan d'Action Technique (Extension Modulaire Additive)**  
 > *Auteur : Antigravity (Google DeepMind) & Julien*  
-> *Date de création : 3 octobre 2026 (Mise à jour Élasticité Bi-GPU)*  
+> *Date de création : 3 octobre 2026 (Mise à jour Additive & Élasticité Bi-GPU)*  
 > *Cible d'infrastructure : Cluster Kubernetes Bare-metal Multi-Nœuds avec Migration Dynamique :*
 > - **Nœud 1 (`linux2` - 192.168.1.160)** : GPU NVIDIA GeForce RTX 3070 8 Go, Stockage centralisé `/stockage` (2 To libres), Control-Plane & Cœur Cognitif (LLM, Voice STT/TTS, Open WebUI, Qdrant).
 > - **Nœud 2 (`mini` - 192.168.1.99)** : Worker GPU NVIDIA GeForce RTX 2070 SUPER 8 Go (Studio Graphique, Moteur de Diffusion SDXL, Retouche & Upscaling 4K).
-> - **Capacité d'Élasticité** : Les pods GPU migrent dynamiquement et automatiquement entre `mini` et `linux2` selon la disponibilité, la charge et l'état allumé/éteint des machines.
+> - **Nature de l'Évolution** : **Ajout fonctionnel (Extension Phase 7)** s'intégrant au socle existant 100% opérationnel (Inférence GPU, Open WebUI, Voice-to-Voice Whisper/Kokoro, Serveur MCP Web Search, Second Cerveau Qdrant).
 > - **Orchestration GitOps** : ArgoCD & Kustomize.
 
 ---
 
-## 🧭 1. Vision & Objectifs du Projet
+> [!NOTE]
+> **Extension Additive sans Régression :**  
+> Ce projet enrichit la plateforme **J.A.R.V.I.S.** d'une nouvelle modalité d'expression visuelle. Il **ne remplace et ne modifie négativement aucun service existant**.  
+> Les fonctionnalités actuelles (dialogue textuel, synthèse vocale française Kokoro `ff_siwis`, reconnaissance vocale Faster-Whisper, recherche Internet en direct via DuckDuckGo MCP, ingestion de notes Markdown et briefing matinal) continuent de fonctionner à 100% et s'articulent en synergie avec ce nouveau Studio Visuel.
+
+---
+
+## 🧭 1. Vision & Synergie avec les Fonctionnalités Existantes
 
 ### 1.1. L'Expérience Utilisateur Cible (UX Iron Man)
 L'utilisateur s'adresse à **J.A.R.V.I.S.** à la voix via le microphone d'Open WebUI (ou un satellite audio) :
 
-1. **Commande Vocale Naturelle** :  
+1. **Commande Vocale Naturelle** *(Utilise le service existant `jarvis-voice-stt`)* :  
    *« Jarvis, imagine et génère une photo d'un salon moderne avec une grande baie vitrée donnant sur une forêt de pins enneigée au crépuscule. »*
-2. **Interprétation & Amplification Agentique (sur `linux2` - RTX 3070)** :  
+2. **Interprétation & Amplification Agentique** *(Utilise le persona existant `jarvis:latest` sur `linux2` - RTX 3070)* :  
    - Whisper STT transcrit la voix instantanément en français (< 200 ms).
    - Le persona **J.A.R.V.I.S.** détecte automatiquement l'intention de génération visuelle.
    - Il amplifie et traduit le prompt en anglais cinématographique pour le moteur de diffusion (cadrage, focale 85mm f/1.4, éclairage volumétrique, textures 8k photoréalistes).
-3. **Délégation & Rendu Graphique Ultra-Rapide (sur `mini` - RTX 2070 SUPER ou repli `linux2`)** :  
+3. **Délégation & Rendu Graphique Ultra-Rapide** *(Nouveau composant `jarvis-image-gen` sur `mini` - RTX 2070 SUPER)* :  
    - Le microservice local de diffusion calcule l'image en **~3 à 5 secondes** sur la **RTX 2070 SUPER** sans impacter la mémoire du LLM sur `linux2`.
-   - Si `mini` est éteint, le pod est automatiquement hébergé sur `linux2` (RTX 3070).
-4. **Restitution Multimodale Immédiate** :  
+   - Si `mini` est éteint, le pod est automatiquement hébergé sur `linux2` (RTX 3070) sans coupure.
+4. **Restitution Multimodale Immédiate** *(Intégration native dans l'interface existante Open WebUI & Kokoro TTS)* :  
    - L'image haute définition apparaît directement dans le fil de discussion Open WebUI.
-   - J.A.R.V.I.S. confirme vocalement via Kokoro TTS (`ff_siwis`) :  
+   - J.A.R.V.I.S. confirme vocalement via le pod existant `jarvis-voice-tts` (`ff_siwis`) :  
      *« Voici votre cliché, Monsieur. Souhaitez-vous que j'ajuste l'ambiance lumineuse ou que j'y intègre d'autres éléments ? »*
 5. **Retouche Itérative & Upscaling par Prompt (Image-to-Image / Inpainting)** :  
    - L'utilisateur peut réagir à la voix ou au clavier :  
      *« Ajoute un fauteuil club en cuir marron près de la baie vitrée et agrandis l'image en haute résolution. »*
-   - J.A.R.V.I.S. conserve l'état contextuel, transmet l'image de référence au nœud actif pour modification (*Image-to-Image / Edits*) et upscaling 4K, puis affiche la nouvelle variante.
+   - J.A.R.V.I.S. conserve l'état contextuel, transmet l'image de référence au studio graphique pour modification (*Image-to-Image / Edits*) et upscaling 4K, puis affiche la nouvelle variante.
+
+---
+
+### 1.2. Matrice d'Intégration & Non-Régression avec l'Existant
+
+| Composant de la Plateforme | Rôle Initial (Phases 1 à 6) | Apport de l'Extension Studio Visuel (Phase 7) | Impact / Risque |
+| :--- | :--- | :--- | :---: |
+| **Open WebUI (`jarvis-webui`)** | Chat, gestion RAG, historiques et personas | Affiche les photos générées en Markdown dans le chat et permet la retouche | 🟢 Zéro régression (Ajout transparent) |
+| **Pipeline Vocal STT (`jarvis-voice-stt`)** | Transcription Faster-Whisper du micro en texte | Sert de point d'entrée vocal naturel pour dicter les scènes à générer | 🟢 Inchangé (Réutilisation directe) |
+| **Pipeline Vocal TTS (`jarvis-voice-tts`)** | Synthèse vocale Kokoro (voix française `ff_siwis`) | Énonce le retour courtois de Jarvis lors de la mise à disposition de l'image | 🟢 Inchangé (Réutilisation directe) |
+| **Moteur LLM (`jarvis-inference`)** | Inférence Ollama (`jarvis:latest`, `gemma2:9b`, `llama3.1`) | Le persona est instruit pour amplifier les prompts en directives photo et appeler le tool | 🟢 Inchangé (Modelfile étendu) |
+| **Serveur MCP Search (`jarvis-mcp-search`)** | Recherche Web DuckDuckGo & extraction de pages | Fonctionne en parallèle ; Jarvis peut chercher sur le web ET générer des images | 🟢 Inchangé (Coexistence totale) |
+| **Second Cerveau (`jarvis-qdrant` / `ingestor`)** | Mémoire vectorielle, notes Obsidian et briefing 07h30 | Continue d'indexer les documents sans interférence | 🟢 Inchangé (Isolé sur son namespace) |
+| **Disque Partagé `/stockage` (8 To / 2 To libres)** | Héberge K3s, Docker, PVCs modèles Ollama et multimédia | Héberge le cache des poids SDXL (`diffusers-cache`) et les PNG créés (`generated-images`) | 🟢 Confort total (2 To disponibles) |
 
 ---
 
@@ -44,14 +65,14 @@ L'architecture s'appuie sur la complémentarité des deux cartes graphiques du c
 sequenceDiagram
     autonumber
     actor User as 👤 Utilisateur
-    box rgb(30, 41, 59) Nœud linux2 (RTX 3070 - 192.168.1.160)
+    box rgb(30, 41, 59) Services Existants (Nœud linux2 - RTX 3070)
         participant UI as 🖥️ Open WebUI
         participant STT as 🎙️ Faster-Whisper
         participant LLM as ⚡ J.A.R.V.I.S. (Ollama)
         participant Storage as 💾 /stockage (2 To NFS/Local)
         participant TTS as 🔊 Kokoro TTS (ff_siwis)
     end
-    box rgb(15, 23, 42) Nœud mini (RTX 2070 SUPER - 192.168.1.99)
+    box rgb(15, 23, 42) Nouveau Composant Additif (Nœud mini - RTX 2070 SUPER)
         participant Diffuser as 🎨 jarvis-image-gen (SDXL)
         participant Upscaler as 🔍 Super-Resolution (Real-ESRGAN)
     end
@@ -105,8 +126,6 @@ sequenceDiagram
 └────────────────────────────────────────────────────────┘   └────────────────────────────────────────────────────────┘
 ```
 
----
-
 ### 3.1. Les Actions Concrètes Déléguées au Nœud `mini` (RTX 2070 SUPER)
 
 1. **Action 1 : Rendu Text-to-Image (T2I) Haute Fidélité** :
@@ -135,7 +154,7 @@ La plateforme met en œuvre un modèle de **haute disponibilité élastique** : 
 ```mermaid
 flowchart TD
     subgraph K8S_SCHEDULER["Orchestrateur Kubernetes K3s"]
-        Detect[Surveillance des Nœuds GPU : linux2 & mini]
+        Detect[Surveillance continue des Nœuds GPU : linux2 & mini]
     end
 
     subgraph ETAT_NOMINAL["1. Mode Nominal (mini & linux2 en ligne)"]
@@ -144,7 +163,7 @@ flowchart TD
     end
 
     subgraph EVENT_MINI_DOWN["2. Extinction / Panne de mini"]
-        miniOff[Nœud mini passe NotReady / Unreachable] --> Evict[Éviction rapide sous 30s]
+        miniOff[Nœud mini passe NotReady / Unreachable] --> Evict[Éviction réactive sous 30s]
         Evict --> MigrateToLinux2[Migration automatique de jarvis-image-gen vers linux2]
         MigrateToLinux2 --> SharedVRAM[linux2 héberge LLM + Image avec CPU-Offload]
     end
@@ -218,32 +237,32 @@ Lorsque `mini` est éteint et que `jarvis-image-gen` migre sur `linux2` aux côt
 
 ---
 
-## 📋 4. Plan d'Action Découplé en 6 Phases
+## 📋 4. Plan d'Action Découplé en 6 Sous-Phases (Extension Phase 7)
 
 ```mermaid
 gantt
-    title Feuille de Route d'Implémentation Studio Visuel J.A.R.V.I.S. (Bi-GPU Élastique)
+    title Déploiement de l'Extension Studio Visuel (Phase 7)
     dateFormat  YYYY-MM-DD
-    section Phase 1 - Architecture
+    section Phase 7.1 - Architecture
     Spécifications API & Contrat Bi-Nœuds       :p1_1, 2026-10-05, 2d
-    section Phase 2 - Microservice
+    section Phase 7.2 - Microservice
     Développement jarvis-image-gen (SDXL)       :p2_1, 2026-10-07, 3d
     Module Upscaling 4K & Retouche I2I         :p2_2, after p2_1, 2d
-    section Phase 3 - Kubernetes & GitOps
+    section Phase 7.3 - Kubernetes & GitOps
     Manifests K8s (Affinité, Failover & Tolerations) :p3_1, after p2_2, 2d
     Partage de stockage NFS RWX (/stockage)     :p3_2, after p3_1, 1d
-    section Phase 4 - Intelligence Vocale
+    section Phase 7.4 - Intelligence Vocale
     Tool Calling / MCP Image Generator          :p4_1, after p3_2, 2d
     Prompt Crafting Photoréaliste dans Jarvis   :p4_2, after p4_1, 1d
-    section Phase 5 - Retouche Conversationnelle
+    section Phase 7.5 - Retouche Conversationnelle
     Gestion de l'historique d'images (Edits)    :p5_1, after p4_2, 2d
-    section Phase 6 - Validation & UX
+    section Phase 7.6 - Validation & UX
     Tests de Migration Dynamique & Doc Finale   :p6_1, after p5_1, 2d
 ```
 
 ---
 
-### Phase 1 : Spécifications & Contrat d'Interface Bi-Nœuds (Jour 1 - 2)
+### Phase 7.1 : Spécifications & Contrat d'Interface Bi-Nœuds (Jour 1 - 2)
 * **Objectif** : Définir les protocoles de communication entre le cœur cognitif (`linux2`) et le studio d'image (sur `mini` ou `linux2`).
 * **Livrables** :
   1. Spécification des endpoints API standardisés :
@@ -255,7 +274,7 @@ gantt
 
 ---
 
-### Phase 2 : Développement du Microservice `jarvis-image-gen` (Jour 3 - 5)
+### Phase 7.2 : Développement du Microservice `jarvis-image-gen` (Jour 3 - 5)
 * **Objectif** : Créer le conteneur Python GPU dédié à la génération, la retouche et l'upscaling.
 * **Stack logicielle** :
   - **Base** : Python 3.11, PyTorch 2.5+ avec CUDA 12.4 / 13.0 (compatible architecture Turing & Ampere).
@@ -270,7 +289,7 @@ gantt
 
 ---
 
-### Phase 3 : Manifests Kubernetes, Migration Élastique & Stockage RWX (Jour 6 - 8)
+### Phase 7.3 : Manifests Kubernetes, Migration Élastique & Stockage RWX (Jour 6 - 8)
 * **Objectif** : Déployer et orchestrer le microservice avec migration dynamique entre `mini` et `linux2`.
 * **Manifests à créer dans `k8s/base/image-gen/`** :
   - `deployment.yaml` :
@@ -287,7 +306,7 @@ gantt
 
 ---
 
-### Phase 4 : Intelligence Vocale, Tool Calling & Prompt Crafting Photoréaliste (Jour 9 - 10)
+### Phase 7.4 : Intelligence Vocale, Tool Calling & Prompt Crafting Photoréaliste (Jour 9 - 10)
 * **Objectif** : Permettre à Jarvis d'interpréter automatiquement la commande vocale, d'enrichir le prompt photographique et de déclencher l'image sans intervention manuelle.
 * **Mécanisme d'Intention & Tool Calling** :
   - **Création de l'outil MCP / Open WebUI Function** :
@@ -304,7 +323,7 @@ gantt
 
 ---
 
-### Phase 5 : Gestion Conversationnelle des Retouches & Upscaling (Jour 11 - 12)
+### Phase 7.5 : Gestion Conversationnelle des Retouches & Upscaling (Jour 11 - 12)
 * **Objectif** : Permettre à l'utilisateur de modifier ou d'agrandir l'image précédente par de simples instructions vocales ou textuelles.
 * **Workflow d'Itération** :
   1. **Détection de Continuité** :
@@ -317,7 +336,7 @@ gantt
 
 ---
 
-### Phase 6 : Validation, Benchmarks & Manuel Utilisateur (Jour 13 - 14)
+### Phase 7.6 : Validation, Benchmarks & Manuel Utilisateur (Jour 13 - 14)
 * **Objectif** : Valider l'expérience globale sous conditions réelles et enrichir la documentation utilisateur.
 * **Tests de Validation** :
   - [ ] Test vocal bout-en-bout : Commande micro sur `linux2` ➔ Génération sur `mini` ➔ Affichage WebUI ➔ Synthèse vocale.
@@ -335,6 +354,7 @@ gantt
 | :--- | :---: | :--- |
 | **Délai Total (Voix ➔ Image à l'écran)** | **< 5 secondes** | Chronométrage de bout en bout sur `mini` (RTX 2070 SUPER). |
 | **Résolution Native / Upscalée** | **1024x1024 natif / 3840x2160 (4K)** | Vérification des métadonnées PNG. |
+| **Non-Régression sur l'Existant** | **100% opérationnel** | Validation simultanée du Chat, Voix STT/TTS, RAG et MCP Search. |
 | **Contention VRAM en Mode Nominal** | **0 Go partagé (Isolation 100%)** | `nvidia-smi` simultané sur `linux2` et `mini`. |
 | **Temps de Migration Automatique** | **< 45 secondes** | Éviction et redémarrage du pod en cas d'arrêt imprévu de `mini`. |
 | **Disponibilité / Résilience Globale** | **100% avec bascule failover** | Test de déconnexion du nœud `mini`. |
@@ -352,4 +372,4 @@ gantt
 
 ---
 
-*Ce document constitue le plan de référence pour le déploiement du Studio Visuel J.A.R.V.I.S. en architecture Bi-GPU élastique et résiliente.*
+*Ce document constitue le plan de référence pour le déploiement du Studio Visuel J.A.R.V.I.S. en extension modulaire du socle existant.*
