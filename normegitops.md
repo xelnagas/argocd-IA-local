@@ -133,49 +133,55 @@ metadata:
 
 ---
 
-## 5. Normes d'Ordonnancement & Assignation GPU (NVIDIA RTX / CUDA)
+## 5. Normes d'Ordonnancement & Assignation Bi-GPU (NVIDIA RTX / CUDA)
 
-Le cluster étant hétérogène (certains nodes avec GPU RTX, d'autres sans), le ciblage strict des workloads d'inférence est **obligatoire**.
+Le cluster disposant de deux cartes graphiques NVIDIA (`linux2` RTX 3070 8 Go et `mini` RTX 2070 SUPER 8 Go), la répartition et la résilience inter-nœuds obéissent aux règles suivantes :
 
 ### 5.1. Étiquetage des Nœuds GPU
-Chaque nœud équipé d'une carte NVIDIA RTX doit comporter le label suivant au niveau du cluster :
 ```bash
-kubectl label nodes <nom-du-worker-gpu> accelerator=nvidia-gpu gpu-model=rtx
+kubectl label nodes linux2 accelerator=nvidia-gpu gpu-model=rtx3070
+kubectl label nodes mini accelerator=nvidia-gpu gpu-model=rtx2070super
 ```
 
-### 5.2. Spécification dans les Pods d'Inférence
-Les manifests des pods d'inférence (vLLM / Ollama) doivent obligatoirement déclarer :
+### 5.2. Spécification pour les Workloads Haute Disponibilité (Studio Visuel)
+Pour permettre au pod `jarvis-image-gen` de s'exécuter prioritairement sur `mini` tout en assurant un repli automatique sur `linux2` (failover sans verrouillage exclusif d'un entier GPU) :
 
 ```yaml
 spec:
-  # 1. Sélection stricte du nœud matériel
-  nodeSelector:
-    accelerator: nvidia-gpu
-
-  # 2. Tolérance aux taints éventuelles dédiées aux GPU
-  tolerations:
-    - key: "nvidia.com/gpu"
-      operator: "Exists"
-      effect: "NoSchedule"
-
-  # 3. Déclaration du Runtime Container CUDA (si configuré)
   runtimeClassName: nvidia
-
+  affinity:
+    nodeAffinity:
+      preferredDuringSchedulingIgnoredDuringExecution:
+        - weight: 100
+          preference:
+            matchExpressions:
+              - key: kubernetes.io/hostname
+                operator: In
+                values: ["mini"]
+        - weight: 50
+          preference:
+            matchExpressions:
+              - key: kubernetes.io/hostname
+                operator: In
+                values: ["linux2"]
+  tolerations:
+    - key: "node.kubernetes.io/not-ready"
+      operator: "Exists"
+      effect: "NoExecute"
+      tolerationSeconds: 30
+    - key: "node.kubernetes.io/unreachable"
+      operator: "Exists"
+      effect: "NoExecute"
+      tolerationSeconds: 30
   containers:
-    - name: inference-engine
-      image: vllm/vllm-openai:latest
-      resources:
-        limits:
-          nvidia.com/gpu: "1"    # Réservation stricte d'un GPU CUDA
-          memory: 32Gi
-          cpu: "8"
-        requests:
-          nvidia.com/gpu: "1"
-          memory: 16Gi
-          cpu: "4"
-      volumeMounts:
-        - name: model-cache
-          mountPath: /root/.cache/huggingface
+    - name: image-generator
+      env:
+        - name: NVIDIA_VISIBLE_DEVICES
+          value: "all"
+        - name: NVIDIA_DRIVER_CAPABILITIES
+          value: "compute,utility"
+        - name: ENABLE_CPU_OFFLOAD
+          value: "true"
 ```
 
 ---
@@ -183,23 +189,21 @@ spec:
 ## 6. Normes de Gestion des Secrets (Sécurité GitOps)
 
 Aucun secret (mot de passe, clé API, jeton JWT) ne doit être déposé en clair dans le dépôt Git.
-
-### 6.1. Outil Standard : Bitnami Sealed Secrets (ou SOPS)
-* Les secrets sont chiffrés asymétriquement côté poste administrateur (`julien`) avec la clé publique du contrôleur `SealedSecrets` déployé sur le master `192.168.1.160`.
-* Seul le manifest `SealedSecret` (chiffré) est versionné dans Git.
-* À la synchronisation, le contrôleur restaure le `Secret` Kubernetes standard dans le namespace `jarvis-system`.
+Les variables sensibles sont gérées via ConfigMaps / Secrets K8s locaux ou SealedSecrets Bitnami.
 
 ---
 
-## 7. Gestion du Stockage & Poids des Modèles
+## 7. Gestion du Stockage Haute Capacité `/stockage` & NFS RWX
 
-Le modèle **Gemma 2 9B**, **Llama 3.1 8B** et leurs variantes quantifiées représentent plusieurs gigaoctets de données de poids tensoriels.
+Afin de préserver la partition système `/` et permettre le partage multi-nœuds sans duplication :
 
-### Règles de Gestion des PVC :
-1. **Politique de Rétention (`reclaimPolicy`)** : Définie sur `Retain` pour le PVC des modèles (`ollama-models-pvc`), afin d'éviter la suppression accidentelle des poids du modèle lors d'un cycle de suppression d'application ArgoCD.
-2. **Points de Montage Dédiés** :
-   - Moteur d'inférence : `/root/.ollama/models`.
-   - Open WebUI : `/app/backend/data` (historique des chats, configurations).
+### Règles de Gestion du Stockage :
+1. **Stockage Centralisé sur `/stockage` (2 To libres)** :
+   - `/stockage/system-storage/diffusers-cache/` : Poids SDXL RealVisXL Lightning (partagé en NFS RWX).
+   - `/stockage/system-storage/generated-images/` : Galerie permanente des PNG générés (partagé en NFS RWX).
+   - `/stockage/system-storage/rancher/` : Données K3s et PVCs locaux.
+2. **Volumes ReadWriteMany (RWX)** :
+   - Tout volume partagé entre `linux2` et `mini` doit être déclaré en PersistentVolume NFS (`accessModes: [ReadWriteMany]`) afin que le worker `mini` accède aux données à la même vitesse que l'hôte local.
 
 ---
 

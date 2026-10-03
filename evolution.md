@@ -181,40 +181,46 @@ k8s/
 │       └── frigate/             # NVR & détection caméra locale
 ```
 
-### Répartition Matérielle Optimale sur le Cluster Existant
+### Répartition Matérielle Optimale sur le Cluster Bi-GPU Existant
 
 | Machine / Node | Type | Rôles & Composants Affectés |
 | :--- | :--- | :--- |
-| **Control Plane** (`192.168.1.160`) | Master K8s CPU | ArgoCD, Traefik Ingress, Qdrant, Home Assistant, Mosquitto MQTT, CronJobs. |
-| **GPU Worker** (`mini` - RTX 2070S) | Worker CUDA | Moteur d'Inférence (Ollama), Faster-Whisper (CUDA), Kokoro TTS, Modèle Vision (Moondream). |
-| **Edge Workers** (`pi1` & `piblanc`) | Raspberry Pi ARM64 | Satellites vocaux Wyoming (Micro + HP), ponts Zigbee USB locaux, capture de flux capteurs. |
+| **Control Plane (`linux2` - 192.168.1.160)** | Master K8s + **RTX 3070 8 Go GDDR6** | ArgoCD, Ingress Traefik, Inférence Ollama (`jarvis:latest`), Faster-Whisper (CUDA), Qdrant Vector DB, Ingestor, Open WebUI, Stockage NFS Centralisé `/stockage` (2 To libres). |
+| **GPU Worker (`mini` - 192.168.1.99)** | Worker Dédié + **RTX 2070 SUPER 8 Go GDDR6** | **Studio Visuel J.A.R.V.I.S.** (`jarvis-image-gen` : SDXL RealVisXL Lightning, Retouche I2I, Upscale 4K), Kokoro TTS (voix française `ff_siwis`), Serveur FastMCP. |
+| **Edge Workers (`pi1` & `piblanc`)** | Raspberry Pi ARM64 | Satellites vocaux Wyoming (Micro + HP), ponts Zigbee USB locaux, capture de flux capteurs. |
 
 ---
 
-## 6. Planning & Phases de Déploiement Recommandées
+## 6. Planning & Phases de Déploiement Réalisées
 
 ```mermaid
 timeline
     title Feuille de Route d'Évolution J.A.R.V.I.S.
-    Phase 5 : La Voix & Persona : Faster-Whisper CUDA : Kokoro / Piper TTS : System Prompt Jarvis dans Open WebUI
-    Phase 6 : Second Cerveau : Base Qdrant : Synchronisation Notes Obsidian : CronJob du Rapport Matinal
-    Phase 7 : Domotique & Hub Physique : Déploiement Home Assistant : Serveur FastMCP HA : Satellites Wyoming Pi
-    Phase 8 : Vision & Proactivité : Frigate NVR : Inférence VLM locale : Alertes vocales proactives
+    Phase 5 : La Voix & Persona : Faster-Whisper CUDA : Kokoro TTS ff_siwis : System Prompt Jarvis dans Open WebUI
+    Phase 6 : Second Cerveau : Base Qdrant : Synchronisation Notes Markdown : CronJob du Rapport Matinal 07h30
+    Phase 7 : Studio Visuel Bi-GPU : SDXL RealVisXL Lightning : Retouche I2I Vocale : Upscaling 4K : Failover < 10s
+    Phase 8 : Domotique & Hub Physique : Déploiement Home Assistant : Serveur FastMCP HA : Satellites Wyoming Pi
+    Phase 9 : Vision & Proactivité : Frigate NVR : Inférence VLM locale : Alertes vocales proactives
 ```
 
-1. **Phase 5 : Voice-to-Voice & Persona (Implémentée dans `k8s/base/voice-pipeline/` et `inference-engine`)**
-   - [x] Déploiement de Faster-Whisper (STT OpenAI-compatible) et Kokoro TTS sur le nœud `mini`.
-   - [x] Connexion directe de l'entrée/sortie audio dans `jarvis-webui` (`AUDIO_STT_ENGINE`, `AUDIO_TTS_ENGINE`, `AUDIO_TTS_VOICE: bm_george`).
-   - [x] Injection du Persona officiel J.A.R.V.I.S. via `ConfigMap` Modelfile et instanciation automatique de `jarvis:latest` sous Ollama.
-2. **Phase 6 : Mémoire Long Terme & Second Cerveau (Implémentée dans `k8s/base/second-brain/`)**
+1. **Phase 5 : Voice-to-Voice & Persona (Implémentée & Validée)**
+   - [x] Déploiement de Faster-Whisper (STT GPU <200ms) et Kokoro TTS voix française `ff_siwis` (<300ms).
+   - [x] Connexion directe de l'entrée/sortie audio dans `jarvis-webui`.
+   - [x] Injection du Persona officiel J.A.R.V.I.S. via `ConfigMap` Modelfile sous Ollama.
+2. **Phase 6 : Mémoire Long Terme & Second Cerveau (Implémentée & Validée)**
    - [x] Déploiement du serveur vectoriel persistant Qdrant (`jarvis-qdrant-pvc`, port 6333 REST & 6334 gRPC).
-   - [x] Worker d'ingestion sémantique autonome `jarvis-ingestor` (vectorisation continue des notes Markdown et docs via `nomic-embed-text`).
-   - [x] CronJob du briefing matinal `jarvis-morning-digest` (planifié quotidiennement à 07h30, rapport Stark Industries).
-3. **Phase 7 : Hub Domotique & Contrôle Physique**
+   - [x] Worker d'ingestion sémantique autonome `jarvis-ingestor` (vectorisation continue des notes via `nomic-embed-text`).
+   - [x] CronJob du briefing matinal `jarvis-morning-digest` (quotidien à 07h30).
+3. **Phase 7 : Studio Visuel & Retouche Vocale Photoréaliste Bi-GPU (Implémentée & Validée)**
+   - [x] Microservice `jarvis-image-gen` basé sur SDXL `RealVisXL_V4.0_Lightning` avec support Text-to-Image, Image-to-Image et Super-Résolution 4K.
+   - [x] Volume persistant partagé NFS RWX sur `/stockage` pour les modèles et la galerie d'images.
+   - [x] Intégration vocale complète : enrichissement automatique du prompt par le LLM (focale 85mm, raw photo), confirmation vocale Kokoro, retouche par simple feedback vocal.
+   - [x] Migration dynamique et haute disponibilité : ordonnancement préférentiel sur `mini` (RTX 2070 SUPER) avec bascule failover automatique sur `linux2` (RTX 3070) en moins de 10 secondes.
+4. **Phase 8 : Hub Domotique & Contrôle Physique (À venir)**
    - Déployer Home Assistant Core et le pont MQTT.
-   - Implémenter le serveur FastMCP `jarvis-mcp-ha` pour que Jarvis puisse interagir avec les équipements.
+   - Implémenter le serveur FastMCP `jarvis-mcp-ha` pour que Jarvis puisse interagir avec les équipements domotiques.
    - Convertir l'un des Raspberry Pi en satellite audio d'ambiance de bureau.
-4. **Phase 8 : Vision & Autonomie Proactive Avancée**
+5. **Phase 9 : Vision & Autonomie Proactive Avancée (À venir)**
    - Brancher une caméra IP de lab/bureau sur Frigate NVR.
    - Connecter le VLM local pour l'interprétation d'événements visuels.
    - Mettre en place la surveillance proactive du cluster K8s avec notification vocale d'anomalies.

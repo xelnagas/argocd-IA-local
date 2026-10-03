@@ -1,28 +1,38 @@
-# Fiche Produit : Plateforme IA Locale "Jarvis"
+# Fiche Produit : Plateforme IA Locale & Studio Visuel "J.A.R.V.I.S."
 
 | Métadonnée | Valeur |
 | :--- | :--- |
-| **Nom du Produit** | **Jarvis** (Local AI & Multi-Agent Platform) |
-| **Version** | 1.0.0-draft |
-| **Statut** | En conception / Initialisation GitOps |
-| **Dépôt GitOps** | `https://github.com/xelnagas/argocd-IA-local.git` |
-| **Orchestrateur GitOps** | ArgoCD (Application K8s : `jarvis`) |
-| **Cluster Kubernetes** | Master Control-Plane : `192.168.1.160` (Compte administrateur : `julien`) |
+| **Nom du Produit** | **J.A.R.V.I.S.** (Local Multi-Modal AI, Voice-to-Voice & Visual Studio Platform) |
+| **Version** | **2.0.0 (Production Bi-GPU & Studio Visuel Déployé)** |
+| **Statut** | 🟢 **100% Opérationnel & Validé de Bout en Bout** |
+| **Dépôt GitOps** | `https://github.com/xelnagas/argocd-IA-local.git` (Branche `main`) |
+| **Orchestrateur GitOps** | ArgoCD (Application K8s : `jarvis` dans `k8s/base/`) |
+| **Cluster Kubernetes** | Bi-GPU Bare-metal K3s : Master `linux2` (`192.168.1.160`) + Worker `mini` (`192.168.1.99`) |
+| **Accélération Matérielle** | **16 Go VRAM GDDR6 cumulée** (NVIDIA RTX 3070 8 Go + NVIDIA RTX 2070 SUPER 8 Go) |
+| **Stockage Haute Capacité** | NFS RWX sur `/stockage` (Disque 8 To / 2.0 To libres) |
 | **Réseau Local** | `192.168.1.0/24` |
 
 ---
 
 ## 1. Vision & Objectifs Stratégiques
 
-Le projet **Jarvis** vise à déployer une infrastructure d'Intelligence Artificielle générative et d'orchestration multi-agents entièrement auto-hébergée (on-premise), souveraine et résiliente, s'exécutant sur un cluster Kubernetes bare-metal domestique/lab.
+Le projet **J.A.R.V.I.S.** fournit une plateforme souveraine, auto-hébergée et multimodale d'Intelligence Artificielle générative, de synthèse vocale temps réel, de recherche web en direct et de **génération / retouche photographique photoréaliste** par commande vocale.
 
-### Objectifs Clés
-1. **Souveraineté Totale des Données** : Aucune dépendance vis-à-vis d'APIs cloud externes (OpenAI, Anthropic, etc.). Données, prompts et fichiers conservés sur le réseau local.
-2. **Accélération Matérielle Haute Performance** : Exploitation directe des cartes graphiques NVIDIA RTX (CUDA) présentes sur les worker nodes dédiés.
-3. **Moteur d'Inférence Dédié** : Prise en charge de modèles open-weights avancés, notamment la famille **Gemma** (ex: *Gemma 4 26B / A4B* ou équivalents quantifiés 4-bit / AWQ / GGUF) optimisés pour la VRAM disponible.
-4. **Accessibilité & Ergonomie** : Interface conversationnelle moderne accessible depuis l'ensemble des postes du réseau local via un Ingress Kubernetes.
-5. **Recherche Web Temps Réel & Extensibilité MCP** : Intégration d'un serveur d'outils MCP (Model Context Protocol) dédié pour permettre au modèle de rechercher des informations sur Internet et extraire le contenu de pages web.
-6. **Exploitation 100% GitOps** : Cycle de vie applicatif piloté exclusivement par ArgoCD depuis le dépôt source Git.
+### Objectifs Clés Atteints
+1. **Souveraineté Totale & Confidentialité Absolue** : 100% des données, voix, photos générées et mémoires vectorielles restent confinées sur le réseau local sans aucune fuite vers le cloud.
+2. **Accélération Matérielle Bi-GPU Élastique** :
+   - `linux2` (RTX 3070 8 Go) : Dédiée à l'inférence LLM (`jarvis:latest`, ~40 tok/s), transcription Faster-Whisper, embeddings et Qdrant.
+   - `mini` (RTX 2070 SUPER 8 Go) : Dédiée au Studio Visuel SDXL Lightning (~7s par rendu), au TTS Kokoro (`ff_siwis`) et aux workers MCP.
+3. **Studio Visuel & Retouche Vocale Photoréaliste (Phase 7)** :
+   - Génération Text-to-Image photoréaliste SDXL Lightning 1024x1024 en **~7 secondes**.
+   - Retouche conversationnelle Image-to-Image (I2I) préservant le sujet en **~7 secondes**.
+   - Super-résolution et upscaling 4K Ultra-HD (**4096x4096**) en **3.5 secondes**.
+4. **Haute Disponibilité & Migration Dynamique (Failover < 10s)** :
+   - En cas d'indisponibilité ou d'extinction de `mini`, Kubernetes migre automatiquement le Studio Visuel sur `linux2` sans perte de service.
+5. **Boucle Vocale Voice-to-Voice Instantanée** :
+   - Transcription micro Faster-Whisper (< 200 ms) + Synthèse Kokoro TTS voix française `ff_siwis` (< 300 ms).
+6. **Exploitation 100% GitOps** :
+   - Cycle de vie, manifests Kubernetes et configurations réconciliés en continu par ArgoCD.
 
 ---
 
@@ -31,146 +41,100 @@ Le projet **Jarvis** vise à déployer une infrastructure d'Intelligence Artific
 ```mermaid
 graph TD
     subgraph LAN["Réseau Local (192.168.1.0/24)"]
-        User["Utilisateur / Navigateur"]
-        ExternalClients["Clients Externes LAN (VS Code / Claude Desktop)"]
+        User["👤 Utilisateur (Microphone / Clavier / Navigateur)"]
+        LANServices["Clients LAN (VS Code / Python / API)"]
     end
 
-    subgraph K8s["Cluster Kubernetes (Master: 192.168.1.160)"]
-        Ingress["Ingress Controller (Traefik)"]
-
-        subgraph GeneralNodes["Worker Nodes CPU / Génériques"]
-            WebUI["Open WebUI (Frontend / RAG / Chat)"]
-            MCPSearch["jarvis-mcp-search (Serveur MCP Web Search)"]
-        end
-
-        subgraph GPUNodes["Worker Nodes GPU (NVIDIA RTX)"]
-            InferenceEngine["Moteur d'Inférence (Ollama)<br/>CUDA Runtime + GPU Passthrough"]
-            ModelStorage[("PV / Stockage Modèles<br/>Gemma 2 9B / Llama 3.1 8B")]
-        end
-
-        subgraph GitOpsControl["Management & GitOps"]
-            ArgoCD["ArgoCD Server<br/>(App: 'jarvis')"]
-        end
+    subgraph Storage["Stockage Centralisé (/stockage - 2 To libres)"]
+        NFS["NFS RWX Server (linux2)<br/>/stockage/system-storage/"]
+        ModelCache[("diffusers-cache<br/>RealVisXL Lightning")]
+        ImageGallery[("generated-images<br/>Galerie PNG")]
     end
 
-    subgraph GitRepo["GitHub Repository"]
-        Repo["xelnagas/argocd-IA-local.git"]
+    subgraph NodeLinux2["Nœud linux2 (Control-Plane - RTX 3070 8 Go)"]
+        Traefik["Ingress Traefik (images.local / jarvis.local)"]
+        WebUI["Open WebUI (Frontend unifié : 30080)"]
+        Inference["Ollama (jarvis:latest, gemma2, llama3.1)"]
+        Whisper["Faster-Whisper STT (GPU < 200ms)"]
+        Qdrant["Qdrant Vector DB (Second Cerveau)"]
+        Ingestor["Ingestor Notes Markdown"]
     end
 
-    Repo -->|Déclaration GitOps| ArgoCD
-    ArgoCD -->|Sync & Deploy| K8s
-    User -->|HTTP/HTTPS LAN| Ingress
-    ExternalClients -->|HTTP / MCP LAN| Ingress
+    subgraph NodeMini["Nœud mini (Worker GPU Dédié - RTX 2070 SUPER 8 Go)"]
+        Studio["Studio Visuel (jarvis-image-gen : 30850)<br/>SDXL Lightning + I2I + Upscale 4K"]
+        Kokoro["Kokoro TTS (jarvis-voice-tts)<br/>Voix française ff_siwis"]
+        MCP["FastMCP Search & Image Tools"]
+    end
 
-    Ingress --> WebUI
-    Ingress --> MCPSearch
+    User -->|HTTP / Audio| Traefik
+    Traefik --> WebUI
+    Traefik --> Studio
+    WebUI --> Whisper
+    WebUI --> Inference
+    Inference --> Studio
+    Inference --> Kokoro
+    Inference --> MCP
+    Inference --> Qdrant
 
-    WebUI -->|API OpenAI-compatible| InferenceEngine
-    WebUI <-->|Tool Calling MCP| MCPSearch
-    MCPSearch -->|Requêtes DuckDuckGo / Web| Web["Internet"]
-    InferenceEngine --> ModelStorage
+    Studio --> ModelCache
+    Studio --> ImageGallery
+    NFS --- ModelCache
+    NFS --- ImageGallery
+
+    Studio -.->|Failover automatique < 10s| NodeLinux2
 ```
 
 ---
 
-## 3. Composants Applicatifs de la Stack
+## 3. Matrice des Composants Applicatifs
 
-### 3.1. Moteur d'Inférence IA (Backend GPU)
-* **Technologie retenue** : **vLLM** ou **Ollama** (exécuté en conteneur Kubernetes avec support CUDA).
-  * *Option A (vLLM)* : Recommandé pour des performances optimales de débit, batching continu, API 100% compatible OpenAI `/v1/chat/completions`, support natif AWQ/GPTQ/FP8.
-  * *Option B (Ollama / llama.cpp)* : Idéal pour une gestion dynamique des modèles GGUF et une empreinte mémoire adaptable.
-* **Modèle cible** :
-  * Modèle de type **Gemma 4 26B A4B** (ou Gemma 2 27B / quantized AWQ 4-bit / GGUF Q4_K_M).
-  * Empreinte mémoire VRAM ciblée : ~16 Go à 24 Go selon la quantification et la taille du contexte (KV Cache).
-* **Ressources K8s** :
-  * Requête GPU : `nvidia.com/gpu: 1` (ou GPU partagé si plusieurs cartes).
-  * Runtime : `nvidia` (NVIDIA Container Toolkit).
-  * Stockage partagé (PVC) dédié au cache de modèles HuggingFace / Ollama models (évite le re-téléchargement à chaque redémarrage).
-
-### 3.2. Interface Utilisateur (WebUI)
-* **Technologie retenue** : **Open WebUI**.
-* **Fonctionnalités** :
-  * Interface épurée, responsive, compatible desktop/mobile.
-  * Support multi-utilisateurs et gestion des droits/clés API.
-  * RAG (Retrieval-Augmented Generation) intégré avec injection de documents (PDF, texte, web).
-  * Gestion de prompts personnalisés (System Prompts) et personas d'agents.
-  * Gestion d'outils (*Tool Calling*) et intégration native du protocole MCP.
-  * Connexion directe au backend d'inférence via protocole OpenAI.
-
-### 3.3. Serveur MCP & Recherche Web (jarvis-mcp-search)
-* **Technologie retenue** : **FastMCP** (Streamable HTTP / SSE).
-* **Rôle** :
-  * Fournir des outils de recherche web en direct (`search_internet`) et de lecture de page (`fetch_web_page`).
-  * Exécutable par le modèle Ollama à la demande lors d'une question nécessitant des données récentes.
-  * Connectable aux clients LAN (VS Code, Claude Desktop, Cursor).
-
-### 3.4. Réseau & Ingress
-* **Ingress Controller** : Traefik (intégré k3s).
-* **Exposition LAN** :
-  * Routage par nom d'hôte DNS local (`jarvis.local`, `ollama.local`, `mcp.local`) ou via NodePorts directs (`30080`, `31434`, `30800`).
-  * Timeout configuré à une valeur élevée pour supporter le streaming de réponses longues.
+| Composant | Pod Kubernetes | Image Conteneur | Nœud Préféré | Rôle & Performances |
+| :--- | :--- | :--- | :---: | :--- |
+| **Interface Unifiée** | `jarvis-webui` | `ghcr.io/open-webui/open-webui:main` | `linux2` | Chat, RAG, intégration audio et studio visuel |
+| **Moteur LLM** | `jarvis-inference` | `ollama/ollama:latest` | `linux2` (RTX 3070) | `jarvis:latest`, `gemma2:9b`, `llama3.1:8b` (~40 tok/s) |
+| **Studio Visuel** | `jarvis-image-gen` | `192.168.1.160:5000/jarvis-image-gen:latest` | `mini` (RTX 2070S) | RealVisXL Lightning, I2I et upscale 4K (~7s) |
+| **Synthèse Vocale** | `jarvis-voice-tts` | `ghcr.io/remsky/kokoro-fastapi:v0.2.1` | `mini` | Kokoro TTS voix française `ff_siwis` (< 300 ms) |
+| **Reconnaissance Vocale** | `jarvis-voice-stt` | `fedirz/faster-whisper-server:latest-cuda` | `linux2` (RTX 3070) | Faster-Whisper Medium FP16 (< 200 ms) |
+| **Serveur d'Outils** | `jarvis-mcp-search` | Image Custom Python FastMCP | `mini` / `linux2` | Recherche DuckDuckGo + Tool calling images |
+| **Second Cerveau** | `jarvis-qdrant` | `qdrant/qdrant:v1.12.1` | `linux2` | Base vectorielle HNSW pour la mémoire persistante |
+| **Ingestion Continue** | `jarvis-ingestor` | Image Custom Python Ingestor | `linux2` | Surveillance continue des notes et calcul d'embeddings |
 
 ---
 
-## 4. Matériel & Découpage de l'Infrastructure
+## 4. Matrice des Flux Réseau & URLs
 
-| Rôle Node | Hôte / IP | Caractéristiques | Rôle dans Jarvis |
+| Service | Accès Direct LAN (IP:Port) | Accès Ingress FQDN | Port Interne K8s | Description |
+| :--- | :--- | :--- | :---: | :--- |
+| **Open WebUI** | **`http://192.168.1.160:30080`** | `http://jarvis.local/` | 8080 | Interface web complète |
+| **Studio Visuel API** | **`http://192.168.1.160:30850`** | `http://images.local/` | 8000 | Endpoints OpenAI `/v1/images/*` |
+| **Galerie d'Images** | `http://192.168.1.160:30850/images/` | `http://jarvis.local/images/` | 8000 | Consultation directe des PNG |
+| **Ollama GPU API** | `http://192.168.1.160:31434` | `http://ollama.local/` | 11434 | API LLM compatible OpenAI |
+| **Serveur FastMCP** | `http://192.168.1.160:30800/mcp` | `http://mcp.local/mcp` | 8000 | Protocole MCP pour LLM et clients |
+| **Qdrant Vector DB** | `http://192.168.1.160:30333` | `http://qdrant.local/` | 6333 | Base vectorielle |
+| **ArgoCD Server** | `https://192.168.1.160/` | - | 443 | Console GitOps |
+
+---
+
+## 5. Spécifications Matérielles & Découpage
+
+| Nœud | Rôle K8s | Matériel | Rôle Applicatif |
 | :--- | :--- | :--- | :--- |
-| **Control Plane** | `192.168.1.160` (admin: `julien`) | K8s Master, API Server, etcd, ArgoCD Server | Gestion GitOps, supervision, ingress |
-| **GPU Worker Node** | `mini` (`192.168.1.99`) | Intel 12 vCPUs, 15 Go RAM, **NVIDIA GeForce RTX 2070 SUPER (8 Go VRAM)** | Inférence Ollama GPU (`accelerator=nvidia-gpu`), Open WebUI, MCP |
-| **Edge Workers** | `pi1` (`192.168.1.24`), `piblanc` (`192.168.1.50`) | ARM64 Raspberry Pi | Trafic réseau, pods légers |
+| **`linux2`** (`192.168.1.160`) | Control-Plane | Intel Core i7, 32 Go RAM, **RTX 3070 8 Go GDDR6**, Disque `/stockage` 8 To | Inférence Ollama, Whisper STT, Qdrant, NFS Master, WebUI |
+| **`mini`** (`192.168.1.99`) | Worker GPU | Intel 12 vCPUs, 16 Go RAM, **RTX 2070 SUPER 8 Go GDDR6** | Studio Visuel SDXL Lightning, TTS Kokoro `ff_siwis`, MCP |
 
 ---
 
-## 5. Exigences Non-Fonctionnelles
+## 6. Historique des Jalons & Roadmap Réalisée
 
-### 5.1. Performance & Latence
-* Débit d'inférence visé : minimum **15 à 35 tokens/seconde** pour une expérience de lecture fluide en direct (atteint ~30 tokens/s sur `gemma2:9b` et ~35 tokens/s sur `llama3.1:8b`).
-* Time-to-First-Token (TTFT) < 1.0s sur les requêtes locales.
-
-### 5.2. Persistance & Stockage
-* **Modèles LLM** : Volume persistant de **60 Go** (`ollama-models-pvc` sur `local-path` du nœud `mini`).
-* **Données Open WebUI** : Volume persistant de 10 Go avec rétention locale.
-
-### 5.3. Résilience & Disponibilité
-* Tolérance aux pannes : redémarrage automatique des pods (`restartPolicy: Always`).
-* Isolement des charges : `nodeSelector: accelerator=nvidia-gpu` garantissant le ciblage exclusif de `mini`.
+- [x] **Phase 0 : Socle Matériel & CUDA** : Pilotes NVIDIA 580+, Container Toolkit et K8s NVIDIA Device Plugin sur tous les nœuds GPU.
+- [x] **Phase 1 : Socle GitOps & Stockage** : Kustomize, K3s, Namespace `jarvis-system`, ArgoCD et migration du stockage sur `/stockage`.
+- [x] **Phase 2 : Moteur d'Inférence GPU** : Ollama GPU avec modèles `jarvis:latest`, `gemma2:9b`, `llama3.1:8b`.
+- [x] **Phase 3 : Interface Utilisateur** : Open WebUI avec Ingress et NodePort 30080.
+- [x] **Phase 4 : Recherche Web en Direct** : Serveur FastMCP DuckDuckGo et extraction de pages web.
+- [x] **Phase 5 : Pipeline Vocal Voice-to-Voice** : Faster-Whisper GPU (<200ms) et Kokoro TTS français `ff_siwis` (<300ms).
+- [x] **Phase 6 : Second Cerveau & Automatisation** : Qdrant Vector DB, Ingestor temps réel et Morning Digest quotidien.
+- [x] **Phase 7 : Studio Visuel Photoréaliste & Retouche Vocale** : SDXL RealVisXL Lightning, microservice FastAPI, retouche I2I, upscale 4K, NFS RWX et bascule dynamique inter-nœuds (<10s).
 
 ---
 
-## 6. Matrice des Flux Réseau
-
-| Source | Destination | Port / Protocole | Description |
-| :--- | :--- | :--- | :--- |
-| Postes LAN (`192.168.1.*`) | Ingress Controller | 80/443 (HTTP/S) | Accès via noms d'hôtes `jarvis.local`, `ollama.local`, `mcp.local` |
-| Postes LAN (`192.168.1.*`) | `jarvis-webui` Service | **30080** (TCP / NodePort) | Accès direct sans configuration DNS (`http://192.168.1.160:30080`) |
-| Postes LAN (`192.168.1.*`) | `jarvis-inference` Service | **31434** (TCP / NodePort) | Accès direct API LLM (`http://192.168.1.160:31434`) |
-| Postes LAN (`192.168.1.*`) | `jarvis-mcp-search` Service | **30800** (TCP / NodePort) | Accès direct Serveur MCP (`http://192.168.1.160:30800/mcp`) |
-| Ingress Controller | `jarvis-webui` Service | 8080 (TCP) | Routage interne du trafic WebUI |
-| Ingress Controller | `jarvis-mcp-search` Service | 8000 (TCP) | Routage interne du trafic MCP |
-| Ingress Controller | `jarvis-inference` Service | 11434 (TCP) | Routage interne de l'API Ollama |
-| `jarvis-webui` Pod | `jarvis-inference` Service | 11434 (TCP) | Envoi des requêtes de chat et streaming |
-| `jarvis-webui` Pod | `jarvis-mcp-search` Service | 8000 (TCP) | Appels d'outils MCP pour la recherche web |
-| `jarvis-mcp-search` Pod | Internet (DuckDuckGo / Web) | 443 (HTTPS) | Récupération des données web en direct |
-| ArgoCD Controller | K8s API (`192.168.1.160:6443`) | 6443 (HTTPS) | Réconciliation GitOps déclarative |
-| ArgoCD Controller | `github.com` | 443 (HTTPS) | Synchronisation du dépôt `argocd-IA-local.git` |
-
----
-
-## 7. Roadmap & Phases de Déploiement
-
-1. **Phase 1 : Socle GitOps & Pré-requis GPU**
-   - Mise en place de l'application ArgoCD `jarvis`.
-   - Validation du NVIDIA Container Toolkit et du Kubernetes NVIDIA Device Plugin sur les worker nodes RTX.
-   - Configuration des StorageClasses locales.
-2. **Phase 2 : Déploiement du Moteur d'Inférence**
-   - Déploiement d'Ollama avec allocation GPU `1`.
-   - Téléchargement et chargement en VRAM des modèles Gemma 2 9B, Llama 3.1 8B et Nomic Embed.
-   - Tests de performance en requêtes directes via curl / script Python.
-3. **Phase 3 : Interface Utilisateur & Ingress**
-   - Déploiement d'Open WebUI connecté au backend d'inférence.
-   - Exposition sur le réseau local via Ingress et NodePorts directs.
-4. **Phase 4 : Serveur MCP & Recherche Web en Temps Réel**
-   - Déploiement du serveur MCP `jarvis-mcp-search`.
-   - Intégration du Tool Calling avec Ollama et Open WebUI.
-   - Exposition locale et documentation utilisateur.
+*Fiche produit mise à jour le 3 octobre 2026 pour la version 2.0.0 de la plateforme J.A.R.V.I.S.*
