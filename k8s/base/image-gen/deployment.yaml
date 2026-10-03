@@ -62,6 +62,10 @@ spec:
               value: "/app/storage/generated-images"
             - name: PUBLIC_IMAGE_URL_PREFIX
               value: "http://jarvis.local/images"
+            - name: NVIDIA_VISIBLE_DEVICES
+              value: "all"
+            - name: NVIDIA_DRIVER_CAPABILITIES
+              value: "compute,utility"
             - name: ENABLE_CPU_OFFLOAD
               value: "true"
             - name: DEFAULT_STEPS
@@ -78,7 +82,6 @@ spec:
             limits:
               cpu: "6"
               memory: 16Gi
-              nvidia.com/gpu: "1"
           volumeMounts:
             - name: image-storage
               mountPath: /app/storage/generated-images
