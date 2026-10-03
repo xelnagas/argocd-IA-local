@@ -113,7 +113,7 @@ def load_pipelines():
                 logger.info(f"Activating sequential CPU-offload (VRAM free: {free_vram:.2f}GB / {total_vram:.2f}GB)")
                 t2i_pipeline.enable_sequential_cpu_offload()
                 device_info["memory_strategy"] = "sequential_cpu_offload"
-            elif ENABLE_CPU_OFFLOAD == "true" or (ENABLE_CPU_OFFLOAD == "auto" and free_vram < 6.5):
+            elif ENABLE_CPU_OFFLOAD == "true" or (ENABLE_CPU_OFFLOAD == "auto" and total_vram <= 12.0) or (ENABLE_CPU_OFFLOAD == "auto" and free_vram < 6.5):
                 logger.info(f"Activating model CPU-offload (VRAM free: {free_vram:.2f}GB / {total_vram:.2f}GB)")
                 t2i_pipeline.enable_model_cpu_offload()
                 device_info["memory_strategy"] = "cpu_offload"

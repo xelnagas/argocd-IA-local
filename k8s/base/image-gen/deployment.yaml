@@ -63,7 +63,7 @@ spec:
             - name: PUBLIC_IMAGE_URL_PREFIX
               value: "http://jarvis.local/images"
             - name: ENABLE_CPU_OFFLOAD
-              value: "auto"
+              value: "true"
             - name: DEFAULT_STEPS
               value: "6"
             - name: DEFAULT_GUIDANCE
