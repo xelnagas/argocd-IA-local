@@ -23,7 +23,6 @@ spec:
     spec:
       nodeSelector:
         accelerator: nvidia-gpu
-        gpu-model: rtx2070super
       runtimeClassName: nvidia
       tolerations:
         - key: nvidia.com/gpu

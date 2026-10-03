@@ -8,8 +8,8 @@ Ce document dresse l'état des lieux matériel et logiciel consolidé des 4 nœu
 
 | Nœud | Rôle K8s | IP Interne | CPU | RAM | Architecture & Noyau | GPU Détecté | Capacité GPU K8s (`nvidia.com/gpu`) | Statut CUDA / K8s |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| **`mini`** | Worker | `192.168.1.99` | 12 vCPU | 15 Go | **amd64** (`7.0.0-38-generic`) | **NVIDIA GeForce RTX 2070 SUPER** (8 Go VRAM GDDR6) | **Allocatable: 1** | **OPÉRATIONNEL** (Driver 580.178.04, CUDA 13.0, Plugin K8s Actif) |
-| **`linux2`** | Control-plane | `192.168.1.160` | 24 vCPU | 31.2 Go | **amd64** (`5.15.0-194-generic`) | NVIDIA GeForce GT 220 (1 Go DDR3, GT216) | Aucune (0) | Inéligible IA (Carte Legacy 2009, Compute 1.2 obsolète) |
+| **`linux2`** | Control-plane & GPU | `192.168.1.160` | 24 vCPU | 31.2 Go | **amd64** (`5.15.0-194-generic`) | **NVIDIA GeForce RTX 3070** (8 Go VRAM GDDR6, GA104) | **Allocatable: 1** | **OPÉRATIONNEL** (Driver 580.178.04, CUDA 13.0, Plugin K8s Actif) |
+| **`mini`** | Worker | `192.168.1.99` | 12 vCPU | 15 Go | **amd64** (`7.0.0-38-generic`) | **NVIDIA GeForce RTX 2070 SUPER** (8 Go VRAM GDDR6) | **Allocatable: 1** | Hors ligne (ou Worker secondaire) |
 | **`pi1`** | Worker | `192.168.1.24` | 4 vCPU | 0.9 Go | **arm64** (`6.8.0-1064-raspi`) | Broadcom VideoCore (SoC Raspberry Pi) | Aucune (0) | Inéligible IA (Nœud Edge ARM64 standard) |
 | **`piblanc`** | Worker | `192.168.1.50` | 4 vCPU | 0.9 Go | **arm64** (`6.8.0-1064-raspi`) | Broadcom VideoCore (SoC Raspberry Pi) | Aucune (0) | Inéligible IA (Nœud Edge ARM64 standard) |
 
@@ -110,10 +110,9 @@ spec:
   replicas: 1
   template:
     spec:
-      # Ciblage strict du nœud mini via ses labels
+      # Ciblage des nœuds GPU via label standard
       nodeSelector:
         accelerator: nvidia-gpu
-        gpu-model: rtx2070super
 
       # Tolérance aux éventuelles taints GPU
       tolerations:
