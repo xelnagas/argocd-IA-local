@@ -10,6 +10,7 @@ metadata:
 data:
   server.py: |
     import asyncio
+    import json
     import urllib.request
     from bs4 import BeautifulSoup
     from ddgs import DDGS
