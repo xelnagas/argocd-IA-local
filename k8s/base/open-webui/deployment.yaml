@@ -35,7 +35,7 @@ spec:
             - name: WEBUI_NAME
               value: "Jarvis AI"
             - name: DEFAULT_MODELS
-              value: "maxwellb/Qwen3.5-35B-A3B-Base:latest"
+              value: "jarvis:latest"
             - name: AUDIO_STT_ENGINE
               value: "openai"
             - name: AUDIO_STT_OPENAI_API_BASE_URL
@@ -79,6 +79,16 @@ spec:
             - name: IMAGE_GENERATION_OPENAI_API_BASE_URL
               value: "http://jarvis-image-gen.jarvis-system.svc.cluster.local:8000/v1"
             - name: IMAGE_GENERATION_OPENAI_API_KEY
+              value: "jarvis-image-key"
+            - name: IMAGES_OPENAI_API_BASE_URL
+              value: "http://jarvis-image-gen.jarvis-system.svc.cluster.local:8000/v1"
+            - name: IMAGES_OPENAI_API_KEY
+              value: "jarvis-image-key"
+            - name: ENABLE_IMAGE_EDIT
+              value: "True"
+            - name: IMAGES_EDIT_OPENAI_API_BASE_URL
+              value: "http://jarvis-image-gen.jarvis-system.svc.cluster.local:8000/v1"
+            - name: IMAGES_EDIT_OPENAI_API_KEY
               value: "jarvis-image-key"
             - name: IMAGE_GENERATION_MODEL
               value: "SG161222/RealVisXL_V4.0_Lightning"
