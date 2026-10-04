@@ -79,8 +79,131 @@ data:
             except Exception:
                 pass
 
+        # Initialiser l'outil Workspace Jarvis Studio Visuel
+        tool_content = '''        """
+        title: Jarvis Studio Visuel
+        author: Jarvis
+        description: Génération et retouche d'images photoréalistes en haute résolution sur GPU local
+        version: 1.0.0
+        """
+
+        import requests
+        import json
+
+        class Tools:
+            def __init__(self):
+                pass
+
+            def generate_image(self, prompt: str) -> str:
+                """
+                Génère une image photoréaliste ou artistique via le Studio Visuel GPU local.
+                :param prompt: Description photographique détaillée en anglais (cadrage, lumière, sujet, style 85mm photo).
+                :return: Le lien Markdown de l'image générée.
+                """
+                try:
+                    res = requests.post(
+                        "http://jarvis-image-gen.jarvis-system.svc.cluster.local:8000/v1/images/generations",
+                        json={"prompt": prompt, "steps": 6, "guidance_scale": 2.0},
+                        timeout=120
+                    )
+                    data = res.json()
+                    item = data["data"][0]
+                    url = item["url"]
+                    img_id = item.get("image_id", "")
+                    dur = item.get("duration_seconds", 0)
+                    return f"![Image générée]({url})\\n\\n*(Image `{img_id}` générée en {dur}s)*"
+                except Exception as e:
+                    return f"Erreur génération d'image: {e}"
+
+            def edit_image(self, prompt: str, parent_image_id: str = "") -> str:
+                """
+                Retouche ou modifie une image existante.
+                :param prompt: Consignes des modifications souhaitées en anglais.
+                :param parent_image_id: Identifiant de l'image précédente.
+                :return: Le lien Markdown de l'image retouchée.
+                """
+                try:
+                    payload = {"prompt": prompt, "denoising_strength": 0.45, "steps": 6, "guidance_scale": 2.0}
+                    if parent_image_id:
+                        payload["parent_image_id"] = parent_image_id
+                    res = requests.post(
+                        "http://jarvis-image-gen.jarvis-system.svc.cluster.local:8000/v1/images/edits",
+                        json=payload,
+                        timeout=120
+                    )
+                    data = res.json()
+                    item = data["data"][0]
+                    url = item["url"]
+                    img_id = item.get("image_id", "")
+                    dur = item.get("duration_seconds", 0)
+                    return f"![Image retouchée]({url})\\n\\n*(Image `{img_id}` retouchée en {dur}s)*"
+                except Exception as e:
+                    return f"Erreur retouche d'image: {e}"
+        '''
+        tool_specs = json.dumps([
+            {
+                "name": "edit_image",
+                "description": "Retouche ou modifie une image existante.",
+                "parameters": {
+                    "properties": {
+                        "prompt": {"description": "Consignes des modifications souhaitées en anglais.", "type": "string"},
+                        "parent_image_id": {"default": "", "description": "Identifiant de l'image précédente.", "type": "string"}
+                    },
+                    "required": ["prompt"],
+                    "type": "object"
+                }
+            },
+            {
+                "name": "generate_image",
+                "description": "Génère une image photoréaliste ou artistique via le Studio Visuel GPU local.",
+                "parameters": {
+                    "properties": {
+                        "prompt": {"description": "Description photographique détaillée en anglais (cadrage, lumière, sujet, style 85mm photo).", "type": "string"}
+                    },
+                    "required": ["prompt"],
+                    "type": "object"
+                }
+            }
+        ])
+        tool_meta = json.dumps({
+            "description": "Génération et retouche d'images photoréalistes sur GPU local",
+            "manifest": {
+                "title": "Jarvis Studio Visuel",
+                "author": "Jarvis",
+                "description": "Génération et retouche d'images photoréalistes en haute résolution sur GPU local",
+                "version": "1.0.0"
+            },
+            "has_user_valves": False
+        })
+
+        c.execute('SELECT id FROM user LIMIT 1')
+        urow = c.fetchone()
+        admin_uid = urow[0] if urow else 'admin'
+
+        c.execute('SELECT id FROM tool WHERE id = "jarvis_image_studio"')
+        if not c.fetchone():
+            c.execute('''
+                INSERT INTO tool (id, user_id, name, content, specs, meta, valves, updated_at, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, '{}', ?, ?)
+            ''', ('jarvis_image_studio', admin_uid, 'Jarvis Studio Visuel', tool_content, tool_specs, tool_meta, t, t))
+
+        # Initialiser les capacités et outils pour les modèles
+        for mid, mname in [('jarvis:latest', 'Jarvis (Assistant Principal)'), ('maxwellb/Qwen3.5-35B-A3B-Base:latest', 'Qwen 3.5 35B A3B Base')]:
+            mmeta = json.dumps({
+                'toolIds': ['jarvis_image_studio'],
+                'capabilities': {'vision': True, 'image_generation': True, 'web_search': True}
+            })
+            c.execute('SELECT id FROM model WHERE id = ?', (mid,))
+            if c.fetchone():
+                c.execute('UPDATE model SET meta = ?, updated_at = ? WHERE id = ?', (mmeta, t, mid))
+            else:
+                c.execute('''
+                    INSERT INTO model (id, user_id, base_model_id, name, params, meta, updated_at, created_at, is_active)
+                    VALUES (?, ?, NULL, ?, '{}', ?, ?, ?, 1)
+                ''', (mid, admin_uid, mname, mmeta, t, t))
+
         conn.commit()
         conn.close()
-        print("WebUI SQLite audio configuration successfully initialized with voice ff_siwis.")
+        print("WebUI SQLite audio, studio tool and models successfully initialized.")
     except Exception as e:
         print("WebUI SQLite audio initialization error:", e)

@@ -61,7 +61,7 @@ spec:
             - name: STORAGE_DIR
               value: "/app/storage/generated-images"
             - name: PUBLIC_IMAGE_URL_PREFIX
-              value: "http://jarvis.local/images"
+              value: "http://jarvis-image-gen.jarvis-system.svc.cluster.local:8000/images"
             - name: NVIDIA_VISIBLE_DEVICES
               value: "all"
             - name: NVIDIA_DRIVER_CAPABILITIES
