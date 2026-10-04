@@ -99,6 +99,8 @@ data:
                 url = item["url"]
                 img_id = item.get("image_id", "")
                 dur = item.get("duration_seconds", 0)
+                if "svc.cluster.local" in url:
+                    url = f"http://jarvis.local/images/{img_id}"
                 return f"![Photo générée]({url})\n\n*(Image ID: `{img_id}` générée en {dur}s - Vous pouvez demander une retouche ou un agrandissement 4K)*"
         except Exception as e:
             return f"Erreur lors de la génération de l'image : {str(e)}"
@@ -131,6 +133,8 @@ data:
                 url = item["url"]
                 img_id = item.get("image_id", "")
                 dur = item.get("duration_seconds", 0)
+                if "svc.cluster.local" in url:
+                    url = f"http://jarvis.local/images/{img_id}"
                 return f"![Photo retouchée]({url})\n\n*(Image ID: `{img_id}` retouchée en {dur}s)*"
         except Exception as e:
             return f"Erreur lors de la retouche de l'image : {str(e)}"
@@ -158,6 +162,8 @@ data:
                 item = res["data"][0]
                 url = item["url"]
                 res_str = item.get("resolution", "")
+                if "svc.cluster.local" in url:
+                    url = f"http://jarvis.local/images/{image_id}"
                 return f"![Photo HD 4K]({url})\n\n*(Image agrandie en résolution {res_str})*"
         except Exception as e:
             return f"Erreur lors de l'agrandissement de l'image : {str(e)}"

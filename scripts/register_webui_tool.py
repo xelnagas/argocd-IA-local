@@ -50,6 +50,8 @@ class Tools:
             url = item["url"]
             img_id = item.get("image_id", "")
             dur = item.get("duration_seconds", 0)
+            if "svc.cluster.local" in url:
+                url = f"http://jarvis.local/images/{img_id}"
             return f"![Image générée]({url})\\n\\n*(Image `{img_id}` générée en {dur}s)*"
         except Exception as e:
             return f"Erreur génération d'image: {e}"
@@ -75,6 +77,8 @@ class Tools:
             url = item["url"]
             img_id = item.get("image_id", "")
             dur = item.get("duration_seconds", 0)
+            if "svc.cluster.local" in url:
+                url = f"http://jarvis.local/images/{img_id}"
             return f"![Image retouchée]({url})\\n\\n*(Image `{img_id}` retouchée en {dur}s)*"
         except Exception as e:
             return f"Erreur retouche d'image: {e}"

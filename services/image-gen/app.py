@@ -184,7 +184,7 @@ def health():
     }
 
 
-@app.get("/images/{filename}")
+@app.api_route("/images/{filename}", methods=["GET", "HEAD"])
 def get_image(filename: str):
     file_path = os.path.join(STORAGE_DIR, filename)
     if not os.path.exists(file_path):
