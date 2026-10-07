@@ -24,7 +24,7 @@ Ce plan d'action constitue la **Phase 7** du projet global J.A.R.V.I.S. Il vient
       │
 [✅ Phase 1 : Socle GitOps & Stockage (Kustomize, Namespace jarvis-system, ArgoCD)]
       │
-[✅ Phase 2 : Moteur d'Inférence GPU (Ollama : jarvis:latest, gemma2, llama3.1, Qwen3.5)]
+[✅ Phase 2 : Moteur d'Inférence GPU (Ollama : jarvis:latest, gemma2:9b, llama3.1:8b)]
       │
 [✅ Phase 3 : Interface Utilisateur (Open WebUI sur http://jarvis.local & 30080)]
       │

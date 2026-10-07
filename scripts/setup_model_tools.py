@@ -12,7 +12,7 @@ now = int(time.time())
 
 models_to_configure = [
     ("jarvis:latest", "Jarvis (Assistant Principal)"),
-    ("maxwellb/Qwen3.5-35B-A3B-Base:latest", "Qwen 3.5 35B A3B Base")
+    ("gemma2:9b", "Gemma 2 9B")
 ]
 
 for model_id, model_name in models_to_configure:

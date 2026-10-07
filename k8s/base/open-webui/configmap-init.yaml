@@ -192,7 +192,7 @@ data:
             ''', ('jarvis_image_studio', admin_uid, 'Jarvis Studio Visuel', tool_content, tool_specs, tool_meta, t, t))
 
         # Initialiser les capacités et outils pour les modèles
-        for mid, mname in [('jarvis:latest', 'Jarvis (Assistant Principal)'), ('maxwellb/Qwen3.5-35B-A3B-Base:latest', 'Qwen 3.5 35B A3B Base')]:
+        for mid, mname in [('jarvis:latest', 'Jarvis (Assistant Principal)'), ('gemma2:9b', 'Gemma 2 9B')]:
             mmeta = json.dumps({
                 'toolIds': ['jarvis_image_studio'],
                 'capabilities': {'vision': True, 'image_generation': True, 'web_search': True}

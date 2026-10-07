@@ -1,0 +1,5 @@
+{
+  "model": "gemma2:9b",
+  "prompt": "Dis bonjour en un mot",
+  "stream": false
+}
